@@ -5,6 +5,8 @@
   flex-direction: column;
   height: 100%;
   gap: var(--space-6);
+  overflow-y: auto;
+  padding-bottom: var(--space-8);
 }
 
 /* Header */
@@ -14,6 +16,7 @@
   gap: var(--space-1);
   border-bottom: var(--border);
   padding-bottom: var(--space-5);
+  flex-shrink: 0;
 }
 
 .settings-title {
@@ -33,7 +36,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  max-width: 700px;
+  width: 100%;
 }
 
 /* Section */
@@ -221,4 +224,28 @@
 .settings-actions {
   padding-top: var(--space-4);
   border-top: var(--border);
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+/* Name Input */
+.name-input {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  border: var(--border);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  min-width: 200px;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.name-update-btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.1em;
 }

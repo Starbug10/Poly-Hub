@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Profile
   getProfile: () => ipcRenderer.invoke('profile:get'),
   saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
+  updateProfile: (updates) => ipcRenderer.invoke('profile:update', updates),
 
   // Peers
   getPeers: () => ipcRenderer.invoke('peers:get'),
@@ -29,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   shareFiles: (files) => ipcRenderer.invoke('files:share', files),
   getSharedFiles: () => ipcRenderer.invoke('files:get'),
   deleteFile: (fileId) => ipcRenderer.invoke('files:delete', fileId),
+  openFile: (filePath) => ipcRenderer.invoke('files:open', filePath),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
@@ -37,6 +39,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Event listeners
   onPeerAdded: (callback) => {
     ipcRenderer.on('peer:added', (event, peer) => callback(peer));
+  },
+  onPeerUpdated: (callback) => {
+    ipcRenderer.on('peer:updated', (event, peer) => callback(peer));
   },
   onFileReceived: (callback) => {
     ipcRenderer.on('file:received', (event, file) => callback(file));

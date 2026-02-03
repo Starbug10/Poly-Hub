@@ -9,7 +9,7 @@ function TitleBar() {
   return (
     <header className="titlebar">
       <div className="titlebar-drag">
-        <span className="titlebar-title">POLY-HUB</span>
+        <span className="titlebar-title">POLYHUB</span>
       </div>
       <div className="titlebar-controls">
         <button

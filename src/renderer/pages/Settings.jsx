@@ -11,6 +11,8 @@ function Settings() {
   const [profile, setProfile] = useState(null);
   const [peers, setPeers] = useState([]);
   const [saved, setSaved] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     loadData();
@@ -30,6 +32,9 @@ function Settings() {
 
     const currentProfile = await window.electronAPI.getProfile();
     setProfile(currentProfile);
+    if (currentProfile) {
+      setNewName(currentProfile.name);
+    }
 
     const currentPeers = await window.electronAPI.getPeers();
     setPeers(currentPeers);
@@ -39,6 +44,16 @@ function Settings() {
     await window.electronAPI.updateSettings(settings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleNameUpdate = async () => {
+    if (!newName.trim() || newName === profile?.name) {
+      setEditingName(false);
+      return;
+    }
+    const updatedProfile = await window.electronAPI.updateProfile({ name: newName.trim() });
+    setProfile(updatedProfile);
+    setEditingName(false);
   };
 
   const handleMaxFileSizeChange = (e) => {
@@ -77,7 +92,7 @@ function Settings() {
     <div className="settings">
       <header className="settings-header">
         <h1 className="settings-title">SETTINGS</h1>
-        <span className="settings-subtitle">Configure your Poly-Hub preferences</span>
+        <span className="settings-subtitle">Configure your PolyHub preferences</span>
       </header>
 
       <div className="settings-content">
@@ -91,7 +106,31 @@ function Settings() {
                 <span className="label-description">Your display name visible to peers</span>
               </div>
               <div className="setting-value">
-                <span className="value-text">{profile?.name || '—'}</span>
+                {editingName ? (
+                  <>
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="name-input"
+                      autoFocus
+                      onKeyDown={(e) => e.key === 'Enter' && handleNameUpdate()}
+                    />
+                    <button onClick={handleNameUpdate} className="setting-btn name-update-btn">
+                      SAVE
+                    </button>
+                    <button onClick={() => { setEditingName(false); setNewName(profile?.name || ''); }} className="setting-btn">
+                      CANCEL
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="value-text">{profile?.name || '—'}</span>
+                    <button onClick={() => setEditingName(true)} className="setting-btn">
+                      EDIT
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             <div className="setting-row">

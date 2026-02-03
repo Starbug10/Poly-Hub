@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 const { getTailscaleStatus, getTailscaleIP } = require('./tailscale');
-const { getProfile, saveProfile, getPeers, addPeer, getSettings, updateSettings, addSharedFile, getSharedFiles, removeSharedFile } = require('./store');
-const { PeerServer, sendPairRequest, announceFile, announceFileDelete } = require('./peerServer');
+const { getProfile, saveProfile, updateProfile, getPeers, addPeer, updatePeer, getSettings, updateSettings, addSharedFile, getSharedFiles, removeSharedFile } = require('./store');
+const { PeerServer, sendPairRequest, announceFile, announceFileDelete, announceProfileUpdate } = require('./peerServer');
 
 let mainWindow;
 let peerServer;
@@ -27,7 +28,7 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -66,6 +67,13 @@ async function startPeerServer() {
     mainWindow.webContents.send('file:deleted', data.fileId);
   });
 
+  // Handle incoming profile updates
+  peerServer.on('profile-update', (data) => {
+    console.log('Received profile update from:', data.profile.ip);
+    updatePeer(data.profile.ip, { name: data.profile.name });
+    mainWindow.webContents.send('peer:updated', data.profile);
+  });
+
   try {
     await peerServer.start();
   } catch (err) {
@@ -74,6 +82,12 @@ async function startPeerServer() {
 }
 
 app.whenReady().then(async () => {
+  // Register custom protocol for loading local file thumbnails
+  protocol.registerFileProtocol('polyhub-file', (request, callback) => {
+    const filePath = decodeURIComponent(request.url.replace('polyhub-file://', ''));
+    callback({ path: filePath });
+  });
+
   createWindow();
   await startPeerServer();
 });
@@ -119,6 +133,18 @@ ipcMain.handle('profile:get', () => {
 
 ipcMain.handle('profile:save', (event, profile) => {
   return saveProfile(profile);
+});
+
+ipcMain.handle('profile:update', async (event, updates) => {
+  const updatedProfile = updateProfile(updates);
+  const peers = getPeers();
+  
+  // Notify all peers about profile update
+  for (const peer of peers) {
+    await announceProfileUpdate(peer.ip, updatedProfile);
+  }
+  
+  return updatedProfile;
 });
 
 // Peers
@@ -276,6 +302,16 @@ ipcMain.handle('files:delete', async (event, fileId) => {
   }
 
   return result;
+});
+
+// Open a file with default system application
+ipcMain.handle('files:open', async (event, filePath) => {
+  try {
+    await shell.openPath(filePath);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 // Settings

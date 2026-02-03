@@ -6,6 +6,8 @@ function Gallery() {
   const [files, setFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [settings, setSettings] = useState({ syncFolder: null });
+  const [showPeerTooltip, setShowPeerTooltip] = useState(false);
   const dragCounterRef = useRef(0);
 
   useEffect(() => {
@@ -24,9 +26,17 @@ function Gallery() {
       setFiles((prev) => prev.filter((f) => f.id !== fileId));
     });
 
+    // Listen for peer updates
+    window.electronAPI.onPeerUpdated((updatedPeer) => {
+      setPeers((prev) => 
+        prev.map((p) => p.ip === updatedPeer.ip ? { ...p, name: updatedPeer.name } : p)
+      );
+    });
+
     return () => {
       window.electronAPI.removeAllListeners('file:received');
       window.electronAPI.removeAllListeners('file:deleted');
+      window.electronAPI.removeAllListeners('peer:updated');
     };
   }, []);
 
@@ -36,6 +46,9 @@ function Gallery() {
 
     const sharedFiles = await window.electronAPI.getSharedFiles();
     setFiles(sharedFiles);
+
+    const currentSettings = await window.electronAPI.getSettings();
+    setSettings(currentSettings);
   }
 
   // Use counter to prevent flickering when dragging over child elements
@@ -86,13 +99,6 @@ function Gallery() {
     }
   };
 
-  const handleSelectFolder = async () => {
-    const folder = await window.electronAPI.selectFolder();
-    if (folder) {
-      await shareFiles([folder]);
-    }
-  };
-
   const shareFiles = async (filesToShare) => {
     setSharing(true);
     try {
@@ -114,7 +120,23 @@ function Gallery() {
     }
   };
 
+  const handleOpenFile = async (file) => {
+    try {
+      await window.electronAPI.openFile(file.path);
+    } catch (err) {
+      console.error('Failed to open file:', err);
+    }
+  };
+
+  const handleSelectFolder = async () => {
+    const folder = await window.electronAPI.selectFolder();
+    if (folder) {
+      await shareFiles([folder]);
+    }
+  };
+
   const hasPeers = peers.length > 0;
+  const hasSyncFolder = !!settings.syncFolder;
 
   return (
     <div 
@@ -131,13 +153,51 @@ function Gallery() {
         </div>
         <div className="gallery-header-right">
           {hasPeers && (
-            <div className="gallery-peer-count">
-              <span className="peer-count-number">{peers.length}</span>
-              <span className="peer-count-label">PEER{peers.length !== 1 ? 'S' : ''}</span>
-            </div>
+            <>
+              <button 
+                className="gallery-folder-btn" 
+                onClick={handleSelectFolder}
+                title="Select folder to share"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+              </button>
+              <div 
+                className="gallery-peer-count"
+                onMouseEnter={() => setShowPeerTooltip(true)}
+                onMouseLeave={() => setShowPeerTooltip(false)}
+              >
+                <span className="peer-count-number">{peers.length}</span>
+                <span className="peer-count-label">PEER{peers.length !== 1 ? 'S' : ''}</span>
+                {showPeerTooltip && (
+                  <div className="peer-tooltip">
+                    <div className="peer-tooltip-title">CONNECTED PEERS</div>
+                    {peers.map((peer) => (
+                      <div key={peer.ip} className="peer-tooltip-item">
+                        <span className="peer-tooltip-name">{peer.name}</span>
+                        <span className="peer-tooltip-ip">{peer.ip}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </header>
+
+      {/* Sync folder warning */}
+      {hasPeers && !hasSyncFolder && (
+        <div className="gallery-warning">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <span>No sync folder configured. Go to <strong>Settings</strong> to set up a folder for shared files.</span>
+        </div>
+      )}
 
       <div className="gallery-content">
         {!hasPeers ? (
@@ -180,7 +240,11 @@ function Gallery() {
         ) : (
           <div className="gallery-grid">
             {files.map((file) => (
-              <div key={file.id} className="file-card">
+              <div 
+                key={file.id} 
+                className="file-card"
+                onClick={() => handleOpenFile(file)}
+              >
                 <button 
                   className="file-delete-btn" 
                   onClick={(e) => handleDeleteFile(e, file.id)}
@@ -189,9 +253,9 @@ function Gallery() {
                   ×
                 </button>
                 <div className="file-thumbnail">
-                  {isImageFile(file.type) ? (
+                  {isImageFile(file.type) && file.path ? (
                     <img 
-                      src={`file://${file.path}`} 
+                      src={`polyhub-file://${file.path.replace(/\\/g, '/')}`}
                       alt={file.name} 
                       className="file-thumbnail-img"
                       onError={(e) => {
@@ -202,7 +266,7 @@ function Gallery() {
                   ) : null}
                   <div 
                     className="file-thumbnail-fallback" 
-                    style={{ display: isImageFile(file.type) ? 'none' : 'flex' }}
+                    style={{ display: isImageFile(file.type) && file.path ? 'none' : 'flex' }}
                   >
                     {getFileIcon(file.type)}
                   </div>
@@ -231,21 +295,6 @@ function Gallery() {
             <span className="drop-overlay-text">
               {sharing ? 'SHARING...' : 'DROP TO SHARE'}
             </span>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom toolbar */}
-      {hasPeers && !isDragging && (
-        <div className="gallery-toolbar">
-          <span className="toolbar-hint">Drag files anywhere or</span>
-          <div className="toolbar-buttons">
-            <button onClick={handleSelectFiles} className="toolbar-btn">
-              SELECT FILES
-            </button>
-            <button onClick={handleSelectFolder} className="toolbar-btn">
-              SELECT FOLDER
-            </button>
           </div>
         </div>
       )}

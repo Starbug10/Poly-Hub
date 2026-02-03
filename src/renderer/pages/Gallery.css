@@ -35,13 +35,45 @@
   color: var(--color-text-muted);
 }
 
+.gallery-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.gallery-folder-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: var(--border);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.gallery-folder-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-sm);
+}
+
 .gallery-peer-count {
+  position: relative;
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border: var(--border);
   background-color: var(--color-surface);
+  cursor: pointer;
+}
+
+.gallery-peer-count:hover {
+  border-color: var(--color-accent);
 }
 
 .peer-count-number {
@@ -54,6 +86,71 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   letter-spacing: 0.1em;
+}
+
+/* Peer Tooltip */
+.peer-tooltip {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--space-2);
+  min-width: 220px;
+  background-color: var(--color-surface);
+  border: var(--border);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+}
+
+.peer-tooltip-title {
+  padding: var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  border-bottom: var(--border);
+}
+
+.peer-tooltip-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-bottom: var(--border);
+}
+
+.peer-tooltip-item:last-child {
+  border-bottom: none;
+}
+
+.peer-tooltip-name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.peer-tooltip-ip {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+/* Warning Banner */
+.gallery-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-warning);
+  color: var(--color-bg);
+  font-size: var(--font-size-sm);
+}
+
+.gallery-warning svg {
+  flex-shrink: 0;
+}
+
+.gallery-warning strong {
+  font-weight: 600;
 }
 
 /* Content */

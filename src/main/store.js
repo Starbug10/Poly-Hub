@@ -36,6 +36,21 @@ function saveProfile(profile) {
 }
 
 /**
+ * Update user profile
+ * @param {object} updates - Partial profile updates
+ */
+function updateProfile(updates) {
+  const current = getProfile();
+  const updated = {
+    ...current,
+    ...updates,
+    updatedAt: Date.now(),
+  };
+  store.set('profile', updated);
+  return updated;
+}
+
+/**
  * Get all peers
  * @returns {Array<{name: string, ip: string, addedAt: number}>}
  */
@@ -63,6 +78,22 @@ function addPeer(peer) {
   
   store.set('peers', peers);
   return { success: true, peers: getPeers() };
+}
+
+/**
+ * Update a peer by IP
+ * @param {string} peerIP - The IP of the peer to update
+ * @param {object} updates - Fields to update
+ */
+function updatePeer(peerIP, updates) {
+  const peers = getPeers();
+  const index = peers.findIndex((p) => p.ip === peerIP);
+  if (index === -1) {
+    return { success: false, reason: 'Peer not found' };
+  }
+  peers[index] = { ...peers[index], ...updates };
+  store.set('peers', peers);
+  return { success: true, peer: peers[index] };
 }
 
 /**
@@ -123,8 +154,10 @@ function clearAll() {
 module.exports = {
   getProfile,
   saveProfile,
+  updateProfile,
   getPeers,
   addPeer,
+  updatePeer,
   getSettings,
   updateSettings,
   getSharedFiles,

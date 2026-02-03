@@ -99,6 +99,13 @@ class PeerServer extends EventEmitter {
         });
         break;
 
+      case 'PROFILE_UPDATE':
+        // Peer is updating their profile
+        this.emit('profile-update', {
+          profile: message.profile,
+        });
+        break;
+
       default:
         console.log('Unknown message type:', message.type);
     }
@@ -238,10 +245,41 @@ function announceFileDelete(peerIP, fileId, from) {
   });
 }
 
+/**
+ * Announce profile update to a peer
+ * @param {string} peerIP - The Tailscale IP of the peer
+ * @param {object} profile - Updated profile {name, ip}
+ */
+function announceProfileUpdate(peerIP, profile) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      resolve({ success: false, error: 'Connection timeout' });
+    }, 5000);
+
+    socket.connect(POLY_HUB_PORT, peerIP, () => {
+      clearTimeout(timeout);
+      socket.write(JSON.stringify({
+        type: 'PROFILE_UPDATE',
+        profile,
+      }));
+      socket.end();
+      resolve({ success: true });
+    });
+
+    socket.on('error', (err) => {
+      clearTimeout(timeout);
+      resolve({ success: false, error: err.message });
+    });
+  });
+}
+
 module.exports = {
   PeerServer,
   sendPairRequest,
   announceFile,
   announceFileDelete,
+  announceProfileUpdate,
   POLY_HUB_PORT,
 };
