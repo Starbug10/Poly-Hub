@@ -215,8 +215,16 @@
   transition: all 0.15s ease;
 }
 
+[data-theme="light"] .theme-btn {
+  color: var(--color-bg);
+}
+
 .theme-btn:first-child {
   border-right: var(--border);
+}
+
+[data-theme="light"] .theme-btn:first-child {
+  border-right-color: rgba(0, 0, 0, 0.2);
 }
 
 .theme-btn:hover {
@@ -224,9 +232,18 @@
   background-color: var(--color-surface-elevated);
 }
 
+[data-theme="light"] .theme-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
 .theme-btn.active {
-  background-color: var(--color-accent);
-  color: var(--color-bg);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+[data-theme="light"] .theme-btn.active {
+  background-color: var(--color-bg);
+  color: var(--color-text);
 }
 
 .theme-btn:active {

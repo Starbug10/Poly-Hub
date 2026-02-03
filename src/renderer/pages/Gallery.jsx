@@ -67,7 +67,7 @@ function Gallery() {
       console.log('[Gallery] File auto-added from folder:', file.name);
       setFiles((prev) => {
         // Check if file already exists
-        if (prev.some(f => f.id === file.id)) {
+        if (prev.some(f => f.id === file.id || f.path === file.path)) {
           return prev;
         }
         return [file, ...prev];
@@ -191,7 +191,13 @@ function Gallery() {
       sharedFiles.forEach(file => {
         console.log('[Gallery] Shared:', file.name, file.id);
       });
-      setFiles((prev) => [...prev, ...sharedFiles]);
+      // Only add files that aren't already in the list (they may have been auto-added)
+      setFiles((prev) => {
+        const newFiles = sharedFiles.filter(file => 
+          !prev.some(f => f.id === file.id || f.path === file.path)
+        );
+        return [...prev, ...newFiles];
+      });
     } catch (err) {
       console.error('[Gallery] ERROR: Failed to share files:', err);
     }
@@ -389,8 +395,13 @@ function Gallery() {
                     <div className="peer-tooltip-title">CONNECTED PEERS</div>
                     {peers.map((peer) => (
                       <div key={peer.ip} className="peer-tooltip-item">
-                        <span className="peer-tooltip-name">{peer.name}</span>
-                        <span className="peer-tooltip-ip">{peer.ip}</span>
+                        <div className="peer-tooltip-status">
+                          <span className="peer-tooltip-status-dot online"></span>
+                        </div>
+                        <div className="peer-tooltip-info">
+                          <span className="peer-tooltip-name">{peer.name}</span>
+                          <span className="peer-tooltip-ip">{peer.ip}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

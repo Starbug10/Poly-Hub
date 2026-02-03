@@ -207,6 +207,18 @@
   align-items: center;
   justify-content: center;
   margin: 0 auto;
+  position: relative;
+}
+
+.sidebar-profile-icon .status-indicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-success);
+  border: 2px solid var(--color-surface);
 }
 
 .compact-sidebar .sidebar-profile {

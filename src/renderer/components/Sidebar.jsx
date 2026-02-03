@@ -51,6 +51,7 @@ function Sidebar({ profile }) {
           <div className="sidebar-profile-divider" />
           <div className="sidebar-profile-icon">
             {profile?.name?.[0]?.toUpperCase() || 'U'}
+            <span className="status-indicator"></span>
           </div>
           <div className="sidebar-profile-content">
             <div className="sidebar-profile-header">

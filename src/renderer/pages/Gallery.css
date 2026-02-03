@@ -111,14 +111,41 @@
 
 .peer-tooltip-item {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  align-items: center;
   padding: var(--space-3);
   border-bottom: var(--border);
 }
 
 .peer-tooltip-item:last-child {
   border-bottom: none;
+}
+
+.peer-tooltip-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.peer-tooltip-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-text-dim);
+}
+
+.peer-tooltip-status-dot.online {
+  background-color: var(--color-success);
+}
+
+.peer-tooltip-status-dot.offline {
+  background-color: var(--color-error);
+}
+
+.peer-tooltip-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .peer-tooltip-name {
