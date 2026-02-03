@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -276,15 +276,44 @@ ipcMain.handle('dialog:selectFolder', async () => {
   if (result.canceled) return null;
 
   const folderPath = result.filePaths[0];
-  const stats = fs.statSync(folderPath);
-
+  console.log(`[MAIN] Folder selected: ${folderPath}`);
+  
+  // Get all files in the folder recursively
+  const files = getAllFilesInFolder(folderPath);
+  console.log(`[MAIN] Found ${files.length} file(s) in folder`);
+  
   return {
     path: folderPath,
     name: path.basename(folderPath),
-    size: getFolderSize(folderPath),
-    type: 'folder',
+    files: files,
   };
 });
+
+// Helper to get all files in a folder recursively
+function getAllFilesInFolder(dirPath) {
+  const files = [];
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        // Recursively get files from subdirectories
+        files.push(...getAllFilesInFolder(fullPath));
+      } else if (entry.isFile()) {
+        const stats = fs.statSync(fullPath);
+        files.push({
+          path: fullPath,
+          name: entry.name,
+          size: stats.size,
+          type: path.extname(entry.name).slice(1) || 'file',
+        });
+      }
+    }
+  } catch (e) {
+    console.error(`[MAIN] ERROR: Failed to read folder ${dirPath}:`, e);
+  }
+  return files;
+}
 
 // Helper to get folder size
 function getFolderSize(dirPath) {
@@ -329,15 +358,8 @@ ipcMain.handle('files:share', async (event, files) => {
     const destPath = path.join(syncFolder, file.name);
     console.log(`[MAIN] Copying ${file.name} to sync folder: ${destPath}`);
     try {
-      if (file.type === 'folder') {
-        // For folders, just create reference (actual sync not implemented yet)
-        if (!fs.existsSync(destPath)) {
-          fs.mkdirSync(destPath, { recursive: true });
-        }
-      } else {
-        // Copy file to sync folder
-        fs.copyFileSync(file.path, destPath);
-      }
+      // Copy file to sync folder
+      fs.copyFileSync(file.path, destPath);
     } catch (err) {
       console.error(`[MAIN] ERROR: Failed to copy file ${file.name}:`, err);
       continue;
@@ -396,6 +418,46 @@ ipcMain.handle('files:open', async (event, filePath) => {
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
+  }
+});
+
+// Get file thumbnail as data URL
+ipcMain.handle('files:getThumbnail', async (event, filePath) => {
+  try {
+    const ext = path.extname(filePath).toLowerCase();
+    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tiff', '.tif'];
+    
+    if (imageExts.includes(ext)) {
+      // For image files, create a thumbnail from the actual image
+      const image = nativeImage.createFromPath(filePath);
+      if (!image.isEmpty()) {
+        const size = image.getSize();
+        // Resize to thumbnail size (max 200px)
+        const maxSize = 200;
+        let width = size.width;
+        let height = size.height;
+        
+        if (width > maxSize || height > maxSize) {
+          const ratio = Math.min(maxSize / width, maxSize / height);
+          width = Math.floor(width * ratio);
+          height = Math.floor(height * ratio);
+        }
+        
+        const thumbnail = image.resize({ width, height, quality: 'good' });
+        return thumbnail.toDataURL();
+      }
+    } else {
+      // For non-image files, try to get the file icon from Windows
+      const icon = await app.getFileIcon(filePath, { size: 'large' });
+      if (!icon.isEmpty()) {
+        return icon.toDataURL();
+      }
+    }
+    
+    return null;
+  } catch (err) {
+    console.error(`[MAIN] ERROR: Failed to generate thumbnail for ${filePath}:`, err);
+    return null;
   }
 });
 

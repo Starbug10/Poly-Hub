@@ -82,30 +82,46 @@ function Gallery() {
     setIsDragging(false);
 
     const droppedFiles = Array.from(e.dataTransfer.files);
+    console.log('[Gallery] Files dropped:', droppedFiles.length);
     if (droppedFiles.length === 0) return;
 
-    await shareFiles(droppedFiles.map((file) => ({
-      path: file.path,
-      name: file.name,
-      size: file.size,
-      type: file.name.split('.').pop() || 'file',
-    })));
+    const filesToShare = droppedFiles.map((file) => {
+      console.log('[Gallery] Dropped file:', file.name, file.type, file.size);
+      return {
+        path: file.path,
+        name: file.name,
+        size: file.size,
+        type: file.name.split('.').pop() || 'file',
+      };
+    });
+
+    await shareFiles(filesToShare);
   }, []);
 
   const handleSelectFiles = async () => {
+    console.log('[Gallery] Opening file selection dialog');
     const selectedFiles = await window.electronAPI.selectFiles();
+    console.log('[Gallery] Files selected:', selectedFiles.length);
     if (selectedFiles.length > 0) {
+      selectedFiles.forEach(file => {
+        console.log('[Gallery] Selected:', file.name, file.size, file.type);
+      });
       await shareFiles(selectedFiles);
     }
   };
 
   const shareFiles = async (filesToShare) => {
+    console.log('[Gallery] Starting file share for', filesToShare.length, 'file(s)');
     setSharing(true);
     try {
       const sharedFiles = await window.electronAPI.shareFiles(filesToShare);
+      console.log('[Gallery] Successfully shared', sharedFiles.length, 'file(s)');
+      sharedFiles.forEach(file => {
+        console.log('[Gallery] Shared:', file.name, file.id);
+      });
       setFiles((prev) => [...prev, ...sharedFiles]);
     } catch (err) {
-      console.error('Failed to share files:', err);
+      console.error('[Gallery] ERROR: Failed to share files:', err);
     }
     setSharing(false);
   };
@@ -129,9 +145,18 @@ function Gallery() {
   };
 
   const handleSelectFolder = async () => {
+    console.log('[Gallery] Opening folder selection dialog');
     const folder = await window.electronAPI.selectFolder();
     if (folder) {
-      await shareFiles([folder]);
+      console.log('[Gallery] Folder selected:', folder.name, 'Files:', folder.files?.length || 0);
+      if (folder.files && folder.files.length > 0) {
+        folder.files.forEach(file => {
+          console.log('[Gallery] File in folder:', file.name, file.size, file.type);
+        });
+        await shareFiles(folder.files);
+      } else {
+        console.warn('[Gallery] No files found in selected folder');
+      }
     }
   };
 
@@ -240,46 +265,12 @@ function Gallery() {
         ) : (
           <div className="gallery-grid">
             {files.map((file) => (
-              <div 
-                key={file.id} 
-                className="file-card"
-                onClick={() => handleOpenFile(file)}
-              >
-                <button 
-                  className="file-delete-btn" 
-                  onClick={(e) => handleDeleteFile(e, file.id)}
-                  title="Delete file"
-                >
-                  ×
-                </button>
-                <div className="file-thumbnail">
-                  {isImageFile(file.type) && file.path ? (
-                    <img 
-                      src={`polyhub-file://${file.path.replace(/\\/g, '/')}`}
-                      alt={file.name} 
-                      className="file-thumbnail-img"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div 
-                    className="file-thumbnail-fallback" 
-                    style={{ display: isImageFile(file.type) && file.path ? 'none' : 'flex' }}
-                  >
-                    {getFileIcon(file.type)}
-                  </div>
-                </div>
-                <div className="file-info">
-                  <span className="file-name" title={file.name}>{file.name}</span>
-                  <div className="file-meta">
-                    <span className="file-type">{(file.type || 'FILE').toUpperCase()}</span>
-                    <span className="file-meta-dot">•</span>
-                    <span className="file-size">{formatFileSize(file.size)}</span>
-                  </div>
-                </div>
-              </div>
+              <FileCard
+                key={file.id}
+                file={file}
+                onDelete={handleDeleteFile}
+                onOpen={handleOpenFile}
+              />
             ))}
           </div>
         )}
@@ -302,9 +293,81 @@ function Gallery() {
   );
 }
 
-function isImageFile(type) {
-  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
-  return imageTypes.includes(type?.toLowerCase());
+// FileCard component with thumbnail loading
+function FileCard({ file, onDelete, onOpen }) {
+  const [thumbnail, setThumbnail] = useState(null);
+  const [loadingThumbnail, setLoadingThumbnail] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    async function loadThumbnail() {
+      if (!file.path) {
+        setLoadingThumbnail(false);
+        return;
+      }
+      
+      try {
+        const thumbData = await window.electronAPI.getThumbnail(file.path);
+        if (mounted && thumbData) {
+          setThumbnail(thumbData);
+        }
+      } catch (err) {
+        console.error('[FileCard] Failed to load thumbnail:', err);
+      } finally {
+        if (mounted) {
+          setLoadingThumbnail(false);
+        }
+      }
+    }
+
+    loadThumbnail();
+
+    return () => {
+      mounted = false;
+    };
+  }, [file.path]);
+
+  return (
+    <div 
+      className="file-card"
+      onClick={() => onOpen(file)}
+    >
+      <button 
+        className="file-delete-btn" 
+        onClick={(e) => onDelete(e, file.id)}
+        title="Delete file"
+      >
+        ×
+      </button>
+      <div className="file-thumbnail">
+        {thumbnail ? (
+          <img 
+            src={thumbnail}
+            alt={file.name} 
+            className="file-thumbnail-img"
+            style={{ objectFit: 'contain' }}
+          />
+        ) : loadingThumbnail ? (
+          <div className="file-thumbnail-loading">
+            <span>⏳</span>
+          </div>
+        ) : (
+          <div className="file-thumbnail-fallback">
+            {getFileIcon(file.type)}
+          </div>
+        )}
+      </div>
+      <div className="file-info">
+        <span className="file-name" title={file.name}>{file.name}</span>
+        <div className="file-meta">
+          <span className="file-type">{(file.type || 'FILE').toUpperCase()}</span>
+          <span className="file-meta-dot">•</span>
+          <span className="file-size">{formatFileSize(file.size)}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function getFileIcon(type) {

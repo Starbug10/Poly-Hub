@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSharedFiles: () => ipcRenderer.invoke('files:get'),
   deleteFile: (fileId) => ipcRenderer.invoke('files:delete', fileId),
   openFile: (filePath) => ipcRenderer.invoke('files:open', filePath),
+  getThumbnail: (filePath) => ipcRenderer.invoke('files:getThumbnail', filePath),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
