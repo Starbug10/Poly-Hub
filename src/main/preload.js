@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFiles: () => ipcRenderer.invoke('dialog:selectFiles'),
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
   shareFiles: (files) => ipcRenderer.invoke('files:share', files),
+  shareFolder: (folderPath) => ipcRenderer.invoke('files:shareFolder', folderPath),
   getSharedFiles: () => ipcRenderer.invoke('files:get'),
   deleteFile: (fileId) => ipcRenderer.invoke('files:delete', fileId),
   openFile: (filePath) => ipcRenderer.invoke('files:open', filePath),

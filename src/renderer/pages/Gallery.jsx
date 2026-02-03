@@ -124,21 +124,50 @@ function Gallery() {
     dragCounterRef.current = 0;
     setIsDragging(false);
 
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    console.log('[Gallery] Files dropped:', droppedFiles.length);
-    if (droppedFiles.length === 0) return;
+    const droppedItems = Array.from(e.dataTransfer.files);
+    console.log('[Gallery] Items dropped:', droppedItems.length);
+    if (droppedItems.length === 0) return;
 
-    const filesToShare = droppedFiles.map((file) => {
-      console.log('[Gallery] Dropped file:', file.name, file.type, file.size);
-      return {
-        path: file.path,
-        name: file.name,
-        size: file.size,
-        type: file.name.split('.').pop() || 'file',
-      };
-    });
+    // Separate folders from files
+    const folders = [];
+    const filesToShare = [];
 
-    await shareFiles(filesToShare);
+    for (const item of droppedItems) {
+      console.log('[Gallery] Dropped item:', item.name, item.type, item.size, item.path);
+      // If size is 0 and no type, it's likely a folder (or we can check if path exists as directory)
+      // The main process will validate this
+      if (item.size === 0 && !item.type) {
+        folders.push(item.path);
+      } else {
+        filesToShare.push({
+          path: item.path,
+          name: item.name,
+          size: item.size,
+          type: item.name.split('.').pop() || 'file',
+        });
+      }
+    }
+
+    // Share folders first
+    for (const folderPath of folders) {
+      console.log('[Gallery] Sharing folder:', folderPath);
+      setSharing(true);
+      try {
+        const sharedFiles = await window.electronAPI.shareFolder(folderPath);
+        console.log('[Gallery] Folder shared, files:', sharedFiles?.length || 0);
+        if (sharedFiles && sharedFiles.length > 0) {
+          setFiles((prev) => [...prev, ...sharedFiles]);
+        }
+      } catch (err) {
+        console.error('[Gallery] ERROR: Failed to share folder:', err);
+      }
+      setSharing(false);
+    }
+
+    // Then share individual files
+    if (filesToShare.length > 0) {
+      await shareFiles(filesToShare);
+    }
   }, []);
 
   const handleSelectFiles = async () => {
@@ -480,8 +509,8 @@ function Gallery() {
             {/* Show files currently being received */}
             {receivingFiles.map(([fileId, progress]) => (
               <div key={`receiving-${fileId}`} className="file-card file-card-receiving">
-                <div className="file-card-preview">
-                  <div className="file-icon receiving-icon">
+                <div className="file-thumbnail">
+                  <div className="file-thumbnail-fallback receiving-icon">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                       <polyline points="7 10 12 15 17 10" />
@@ -489,15 +518,15 @@ function Gallery() {
                     </svg>
                   </div>
                 </div>
-                <div className="file-card-info">
-                  <div className="file-card-name" title={progress.filename}>{progress.filename}</div>
-                  <div className="file-card-meta">
-                    <span>{formatFileSize(progress.total)}</span>
-                    <span>•</span>
-                    <span>Receiving...</span>
+                <div className="file-info">
+                  <span className="file-name" title={progress.fileName}>{progress.fileName || 'Receiving...'}</span>
+                  <div className="file-meta">
+                    <span className="file-type">RECEIVING</span>
+                    <span className="file-meta-dot">•</span>
+                    <span className="file-size">{formatFileSize(progress.totalBytes || 0)}</span>
                   </div>
                 </div>
-                <div className="file-card-overlay">
+                <div className="file-card-overlay file-card-overlay-progress">
                   <div className="file-progress-container">
                     <div className="file-progress-bar" style={{ width: `${progress.progress}%` }}></div>
                   </div>
@@ -574,6 +603,10 @@ function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
   }, [file.path]);
 
   const isDownloading = progress && progress.progress < 100;
+  
+  // Check if file is an image type
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
+  const isImage = imageExts.includes(file.type?.toLowerCase());
 
   return (
     <div 
@@ -614,8 +647,7 @@ function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
           <img 
             src={thumbnail}
             alt={file.name} 
-            className="file-thumbnail-img"
-            style={{ objectFit: 'contain' }}
+            className={`file-thumbnail-img ${isImage ? 'is-image' : 'is-icon'}`}
           />
         ) : loadingThumbnail ? (
           <div className="file-thumbnail-loading">

@@ -485,6 +485,102 @@ ipcMain.handle('files:share', async (event, files) => {
   return results;
 });
 
+// Share a folder with all files preserving structure
+ipcMain.handle('files:shareFolder', async (event, folderPath) => {
+  console.log(`[MAIN] Sharing folder: ${folderPath}`);
+  
+  // Validate folder exists
+  if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+    console.error(`[MAIN] ERROR: Invalid folder path: ${folderPath}`);
+    return [];
+  }
+  
+  const profile = getProfile();
+  const peers = getPeers();
+  const settings = getSettings();
+  const results = [];
+  
+  // Get folder name
+  const folderName = path.basename(folderPath);
+  
+  // Set default sync folder if not configured
+  let syncFolder = settings.syncFolder;
+  if (!syncFolder) {
+    syncFolder = path.join(app.getPath('documents'), 'PolyHub');
+    if (!fs.existsSync(syncFolder)) {
+      fs.mkdirSync(syncFolder, { recursive: true });
+    }
+    updateSettings({ syncFolder });
+  }
+  
+  // Create destination folder in sync folder
+  const destFolderPath = path.join(syncFolder, folderName);
+  
+  // Helper to copy folder recursively and collect files
+  async function copyFolderRecursive(srcDir, destDir, relativePath = '') {
+    // Create destination directory
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+    
+    const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const srcPath = path.join(srcDir, entry.name);
+      const destPath = path.join(destDir, entry.name);
+      const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      
+      if (entry.isDirectory()) {
+        // Recursively copy subdirectories
+        await copyFolderRecursive(srcPath, destPath, relPath);
+      } else if (entry.isFile()) {
+        // Copy file
+        try {
+          fs.copyFileSync(srcPath, destPath);
+          const stats = fs.statSync(destPath);
+          const ext = path.extname(entry.name).slice(1) || 'file';
+          
+          const sharedFile = {
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: entry.name,
+            path: destPath,
+            size: stats.size,
+            type: ext,
+            sharedBy: profile.name,
+            sharedAt: Date.now(),
+            // Include relative path for folder structure preservation on receiver
+            relativePath: `${folderName}/${relPath}`,
+            folderName: folderName,
+          };
+          
+          addSharedFile(sharedFile);
+          results.push(sharedFile);
+          
+          console.log(`[MAIN] Copied: ${relPath}`);
+        } catch (err) {
+          console.error(`[MAIN] ERROR: Failed to copy ${entry.name}:`, err);
+        }
+      }
+    }
+  }
+  
+  // Copy the folder
+  await copyFolderRecursive(folderPath, destFolderPath);
+  
+  console.log(`[MAIN] Folder copied, ${results.length} file(s)`);
+  
+  // Send all files to peers
+  for (const file of results) {
+    console.log(`[MAIN] Announcing ${file.relativePath || file.name} to ${peers.length} peer(s)`);
+    for (const peer of peers) {
+      await announceFile(peer.ip, file, profile);
+    }
+  }
+  
+  console.log(`[MAIN] Successfully shared folder with ${results.length} file(s)`);
+  return results;
+});
+
 // Get shared files
 ipcMain.handle('files:get', () => {
   return getSharedFiles();
@@ -566,10 +662,20 @@ ipcMain.handle('files:getThumbnail', async (event, filePath) => {
       }
     } else {
       // For non-image files, try to get the file icon from Windows
+      // Use 'large' size (32x32) or 'normal' (16x16)
       const icon = await app.getFileIcon(filePath, { size: 'large' });
       if (!icon.isEmpty()) {
-        // Reduced icon size (25% smaller than before)
-        const resized = icon.resize({ width: 48, height: 48, quality: 'best' });
+        // Scale up the icon for better visibility but maintain crispness
+        // Get at native size first, then let the frontend scale it with CSS
+        const iconSize = icon.getSize();
+        // If icon is small, scale it up with nearest neighbor for pixelated look
+        // Otherwise use best quality
+        const targetSize = 64;
+        const resized = icon.resize({ 
+          width: targetSize, 
+          height: targetSize, 
+          quality: 'best'
+        });
         return resized.toDataURL();
       }
     }

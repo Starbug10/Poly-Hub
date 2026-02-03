@@ -98,7 +98,21 @@ class PeerServer extends EventEmitter {
             
             // Create write stream for the file
             if (this.syncFolder) {
-              const destPath = path.join(this.syncFolder, fileInfo.name);
+              let destPath;
+              
+              // If file has a relative path (from folder), preserve folder structure
+              if (fileInfo.relativePath) {
+                destPath = path.join(this.syncFolder, fileInfo.relativePath);
+                // Ensure parent directories exist
+                const destDir = path.dirname(destPath);
+                if (!fs.existsSync(destDir)) {
+                  fs.mkdirSync(destDir, { recursive: true });
+                  console.log(`[FILE-SERVER] Created folder: ${destDir}`);
+                }
+              } else {
+                destPath = path.join(this.syncFolder, fileInfo.name);
+              }
+              
               fileStream = fs.createWriteStream(destPath);
               fileInfo.localPath = destPath;
               
@@ -113,6 +127,7 @@ class PeerServer extends EventEmitter {
               this.emit('file-progress', {
                 fileId: fileInfo.id,
                 fileName: fileInfo.name,
+                fileType: fileInfo.type,
                 bytesReceived,
                 totalBytes: fileInfo.size,
                 progress: Math.round((bytesReceived / fileInfo.size) * 100),
@@ -137,6 +152,7 @@ class PeerServer extends EventEmitter {
           this.emit('file-progress', {
             fileId: fileInfo.id,
             fileName: fileInfo.name,
+            fileType: fileInfo.type,
             bytesReceived,
             totalBytes: fileInfo.size,
             progress,
@@ -386,6 +402,9 @@ function sendFile(peerIP, file, from, onProgress) {
         sharedBy: file.sharedBy,
         sharedAt: file.sharedAt,
         from: from,
+        // Include relative path for folder structure
+        relativePath: file.relativePath || null,
+        folderName: file.folderName || null,
       });
       const headerBuffer = Buffer.from(header);
       
