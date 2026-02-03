@@ -257,14 +257,42 @@ function getFolderSize(dirPath) {
 ipcMain.handle('files:share', async (event, files) => {
   const profile = getProfile();
   const peers = getPeers();
+  const settings = getSettings();
   const results = [];
 
+  // Set default sync folder if not configured
+  let syncFolder = settings.syncFolder;
+  if (!syncFolder) {
+    syncFolder = path.join(app.getPath('documents'), 'PolyHub');
+    if (!fs.existsSync(syncFolder)) {
+      fs.mkdirSync(syncFolder, { recursive: true });
+    }
+    updateSettings({ syncFolder });
+  }
+
   for (const file of files) {
-    // Add to our shared files
+    // Copy file to sync folder
+    const destPath = path.join(syncFolder, file.name);
+    try {
+      if (file.type === 'folder') {
+        // For folders, just create reference (actual sync not implemented yet)
+        if (!fs.existsSync(destPath)) {
+          fs.mkdirSync(destPath, { recursive: true });
+        }
+      } else {
+        // Copy file to sync folder
+        fs.copyFileSync(file.path, destPath);
+      }
+    } catch (err) {
+      console.error(`Failed to copy file ${file.name}:`, err);
+      continue;
+    }
+
+    // Add to our shared files with new path
     const sharedFile = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: file.name,
-      path: file.path,
+      path: destPath,
       size: file.size,
       type: file.type,
       sharedBy: profile.name,

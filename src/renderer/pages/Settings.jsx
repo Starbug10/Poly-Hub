@@ -4,7 +4,7 @@ import './Settings.css';
 function Settings() {
   const [settings, setSettings] = useState({
     syncFolder: null,
-    maxFileSize: null,
+    maxFileSize: '',
     notifications: true,
     theme: 'dark',
   });
