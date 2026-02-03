@@ -1,4 +1,4 @@
-# Poly-Hub
+# Poly-Hub V1.0.0
 
 > P2P file sharing between trusted users over Tailscale. Built for massive files (5GB+), instant sharing, and a brutalist aesthetic.
 
