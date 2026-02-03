@@ -48,9 +48,21 @@ async function startPeerServer() {
     }
   });
 
-  // Handle incoming file announcements
+  // Handle incoming file announcements (old style - metadata only)
   peerServer.on('file-announce', (data) => {
     console.log('Received file announcement:', data.file.name);
+    const file = {
+      ...data.file,
+      from: data.from,
+      receivedAt: Date.now(),
+    };
+    addSharedFile(file);
+    mainWindow.webContents.send('file:received', file);
+  });
+
+  // Handle actual file transfers (new style - file data included)
+  peerServer.on('file-received', (data) => {
+    console.log('Received file transfer:', data.file.name);
     const file = {
       ...data.file,
       from: data.from,
@@ -73,6 +85,18 @@ async function startPeerServer() {
     updatePeer(data.profile.ip, { name: data.profile.name });
     mainWindow.webContents.send('peer:updated', data.profile);
   });
+
+  // Set sync folder for receiving files
+  let settings = getSettings();
+  let syncFolder = settings.syncFolder;
+  if (!syncFolder) {
+    syncFolder = path.join(app.getPath('documents'), 'PolyHub');
+    if (!fs.existsSync(syncFolder)) {
+      fs.mkdirSync(syncFolder, { recursive: true });
+    }
+    updateSettings({ syncFolder });
+  }
+  peerServer.setSyncFolder(syncFolder);
 
   try {
     await peerServer.start();
