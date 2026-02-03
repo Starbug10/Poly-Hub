@@ -89,23 +89,126 @@
 /* Rounded Corners Mode - Applied when class is added */
 .rounded-corners {
   --border-radius: 8px;
+  --border-radius-pill: 9999px;
+  --border-radius-slight: 6px;
 }
 
-.rounded-corners button,
-.rounded-corners input,
-.rounded-corners select,
-.rounded-corners .file-card,
-.rounded-corners .settings-card,
-.rounded-corners .gallery-filters,
-.rounded-corners .gallery-warning,
-.rounded-corners .peer-tooltip,
-.rounded-corners .file-card-preview,
-.rounded-corners .theme-btn,
-.rounded-corners .setting-btn,
-.rounded-corners .filter-select,
-.rounded-corners .sidebar,
-.rounded-corners .titlebar {
+/* Apply to content elements only (NOT sidebar or titlebar) */
+.rounded-corners button {
+  border-radius: var(--border-radius-pill); /* Pill-shaped buttons */
+}
+
+.rounded-corners input[type="text"],
+.rounded-corners input[type="number"],
+.rounded-corners input[type="search"],
+.rounded-corners textarea {
   border-radius: var(--border-radius);
+}
+
+.rounded-corners select,
+.rounded-corners .filter-select {
+  border-radius: var(--border-radius);
+}
+
+.rounded-corners .file-card,
+.rounded-corners .peer-container,
+.rounded-corners .peer-tooltip,
+.rounded-corners .file-card-preview {
+  border-radius: var(--border-radius);
+}
+
+.rounded-corners .gallery-filters,
+.rounded-corners .gallery-warning {
+  border-radius: var(--border-radius);
+}
+
+/* Settings containers - round top and bottom edges only */
+.rounded-corners .settings-card {
+  border-radius: var(--border-radius);
+}
+
+.rounded-corners .setting-row:first-child {
+  border-top-left-radius: var(--border-radius);
+  border-top-right-radius: var(--border-radius);
+}
+
+.rounded-corners .setting-row:last-child {
+  border-bottom-left-radius: var(--border-radius);
+  border-bottom-right-radius: var(--border-radius);
+}
+
+/* Theme toggle - make it a single pill */
+.rounded-corners .theme-switcher {
+  border-radius: var(--border-radius-pill);
+  overflow: hidden;
+}
+
+/* Toggle switches - round */
+.rounded-corners .toggle-slider {
+  border-radius: var(--border-radius-pill);
+}
+
+.rounded-corners .toggle-slider::before {
+  border-radius: 50%; /* Circle */
+}
+
+/* Checkboxes become circles */
+.rounded-corners input[type="checkbox"]:not(.toggle-slider input) {
+  border-radius: 50%;
+}
+
+/* Storage stats */
+.rounded-corners .storage-stats {
+  border-radius: var(--border-radius);
+}
+
+.rounded-corners .storage-bar-bg {
+  border-radius: 6px;
+}
+
+.rounded-corners .storage-legend-color {
+  border-radius: 50%;
+}
+
+/* Scrollbar — Minimal brutalist style with auto-hide */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border: none;
+  border-radius: 4px; /* Rounded tips */
+  transition: opacity 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Auto-hide scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) var(--color-bg);
+}
+
+*:not(:hover)::-webkit-scrollbar-thumb {
+  opacity: 0;
+}
+
+*::-webkit-scrollbar-thumb {
+  opacity: 1;
+}
+
+/* Focus states */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /* Reset */

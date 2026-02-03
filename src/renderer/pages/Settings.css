@@ -181,22 +181,25 @@
   background-color: var(--color-bg);
 }
 
-/* Theme Switcher */
+/* Theme Switcher - Single pill toggle */
 .theme-switcher {
   display: flex;
   border: var(--border);
+  background-color: var(--color-bg);
+  overflow: hidden;
 }
 
 .theme-btn {
+  flex: 1;
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   border: none;
-  background-color: var(--color-bg);
+  background-color: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all 0.15s ease;
 }
 
 .theme-btn:first-child {
@@ -222,6 +225,38 @@
   font-size: var(--font-size-xs);
   color: var(--color-success);
   letter-spacing: 0.05em;
+}
+
+/* Color Picker */
+.color-picker-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.color-picker-input {
+  width: 50px;
+  height: 36px;
+  border: var(--border);
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.color-picker-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker-input::-webkit-color-swatch {
+  border: none;
+}
+
+.color-picker-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  min-width: 70px;
 }
 
 /* Actions */

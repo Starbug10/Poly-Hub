@@ -192,14 +192,36 @@ function setupFolderWatcher(syncFolder) {
     }
   });
   
-  // Watch for new files
+  // Watch for new files and deletions
   folderWatcher = fs.watch(syncFolder, { recursive: true }, async (eventType, filename) => {
     if (eventType !== 'rename' || !filename) return;
     
     const filePath = path.join(syncFolder, filename);
+    const fileExists = fs.existsSync(filePath);
     
-    // Check if file exists (rename event fires for both create and delete)
-    if (!fs.existsSync(filePath)) return;
+    // Handle file deletion
+    if (!fileExists && existingFiles.has(filePath)) {
+      console.log(`[MAIN] File deleted from sync folder: ${filename}`);
+      existingFiles.delete(filePath);
+      
+      // Find the file in shared files by path
+      const sharedFiles = getSharedFiles();
+      const deletedFile = sharedFiles.find(f => f.path === filePath);
+      
+      if (deletedFile) {
+        // Remove from shared files
+        removeSharedFile(deletedFile.id);
+        
+        // Notify renderer to update gallery
+        mainWindow.webContents.send('file:deleted', deletedFile.id);
+        
+        console.log(`[MAIN] Auto-removed file from gallery: ${filename}`);
+      }
+      return;
+    }
+    
+    // Handle file creation
+    if (!fileExists) return;
     
     // Check if it's actually a file
     const stats = fs.statSync(filePath);

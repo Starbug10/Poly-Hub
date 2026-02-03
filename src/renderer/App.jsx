@@ -28,6 +28,26 @@ function App() {
       if (settings?.theme) {
         document.documentElement.setAttribute('data-theme', settings.theme);
       }
+      
+      // Apply rounded corners
+      if (settings?.roundedCorners) {
+        document.documentElement.classList.add('rounded-corners');
+      }
+      
+      // Apply compact sidebar
+      if (settings?.compactSidebar) {
+        document.documentElement.classList.add('compact-sidebar');
+      }
+      
+      // Apply accent color
+      if (settings?.accentColor) {
+        document.documentElement.style.setProperty('--color-accent', settings.accentColor);
+        const r = parseInt(settings.accentColor.slice(1, 3), 16);
+        const g = parseInt(settings.accentColor.slice(3, 5), 16);
+        const b = parseInt(settings.accentColor.slice(5, 7), 16);
+        const dimmed = `#${Math.floor(r * 0.8).toString(16).padStart(2, '0')}${Math.floor(g * 0.8).toString(16).padStart(2, '0')}${Math.floor(b * 0.8).toString(16).padStart(2, '0')}`;
+        document.documentElement.style.setProperty('--color-accent-dim', dimmed);
+      }
 
       setLoading(false);
     }

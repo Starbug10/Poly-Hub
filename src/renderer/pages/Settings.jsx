@@ -8,6 +8,8 @@ function Settings() {
     notifications: true,
     theme: 'dark',
     roundedCorners: false,
+    accentColor: '#ff6700',
+    compactSidebar: false,
   });
   const [profile, setProfile] = useState(null);
   const [peers, setPeers] = useState([]);
@@ -30,7 +32,25 @@ function Settings() {
     } else {
       document.documentElement.classList.remove('rounded-corners');
     }
-  }, [settings.theme, settings.roundedCorners]);
+    
+    // Apply compact sidebar preference
+    if (settings.compactSidebar) {
+      document.documentElement.classList.add('compact-sidebar');
+    } else {
+      document.documentElement.classList.remove('compact-sidebar');
+    }
+    
+    // Apply accent color
+    if (settings.accentColor) {
+      document.documentElement.style.setProperty('--color-accent', settings.accentColor);
+      // Calculate dimmed version (darker)
+      const r = parseInt(settings.accentColor.slice(1, 3), 16);
+      const g = parseInt(settings.accentColor.slice(3, 5), 16);
+      const b = parseInt(settings.accentColor.slice(5, 7), 16);
+      const dimmed = `#${Math.floor(r * 0.8).toString(16).padStart(2, '0')}${Math.floor(g * 0.8).toString(16).padStart(2, '0')}${Math.floor(b * 0.8).toString(16).padStart(2, '0')}`;
+      document.documentElement.style.setProperty('--color-accent-dim', dimmed);
+    }
+  }, [settings.theme, settings.roundedCorners, settings.accentColor, settings.compactSidebar]);
 
   async function loadData() {
     const currentSettings = await window.electronAPI.getSettings();
@@ -39,6 +59,8 @@ function Settings() {
       ...currentSettings,
       maxFileSize: currentSettings.maxFileSize != null ? String(currentSettings.maxFileSize) : '',
       roundedCorners: currentSettings.roundedCorners || false,
+      accentColor: currentSettings.accentColor || '#ff6700',
+      compactSidebar: currentSettings.compactSidebar || false,
     });
 
     // Apply saved theme on load
@@ -47,6 +69,21 @@ function Settings() {
     // Apply rounded corners on load
     if (currentSettings.roundedCorners) {
       document.documentElement.classList.add('rounded-corners');
+    }
+    
+    // Apply compact sidebar on load
+    if (currentSettings.compactSidebar) {
+      document.documentElement.classList.add('compact-sidebar');
+    }
+    
+    // Apply accent color on load
+    if (currentSettings.accentColor) {
+      document.documentElement.style.setProperty('--color-accent', currentSettings.accentColor);
+      const r = parseInt(currentSettings.accentColor.slice(1, 3), 16);
+      const g = parseInt(currentSettings.accentColor.slice(3, 5), 16);
+      const b = parseInt(currentSettings.accentColor.slice(5, 7), 16);
+      const dimmed = `#${Math.floor(r * 0.8).toString(16).padStart(2, '0')}${Math.floor(g * 0.8).toString(16).padStart(2, '0')}${Math.floor(b * 0.8).toString(16).padStart(2, '0')}`;
+      document.documentElement.style.setProperty('--color-accent-dim', dimmed);
     }
 
     const currentProfile = await window.electronAPI.getProfile();
@@ -315,6 +352,46 @@ function Settings() {
                     type="checkbox"
                     checked={settings.roundedCorners}
                     onChange={(e) => setSettings((prev) => ({ ...prev, roundedCorners: e.target.checked }))}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span className="label-title">Accent Color</span>
+                <span className="label-description">Choose your preferred accent color</span>
+              </div>
+              <div className="setting-value">
+                <div className="color-picker-wrapper">
+                  <input
+                    type="color"
+                    value={settings.accentColor}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, accentColor: e.target.value }))}
+                    className="color-picker-input"
+                  />
+                  <span className="color-picker-value">{settings.accentColor.toUpperCase()}</span>
+                  <button
+                    onClick={() => setSettings((prev) => ({ ...prev, accentColor: '#ff6700' }))}
+                    className="setting-btn"
+                    title="Reset to default orange"
+                  >
+                    RESET
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span className="label-title">Compact Sidebar</span>
+                <span className="label-description">Show only icons in sidebar (hover to see full info)</span>
+              </div>
+              <div className="setting-value">
+                <label className="setting-toggle">
+                  <input
+                    type="checkbox"
+                    checked={settings.compactSidebar}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, compactSidebar: e.target.checked }))}
                   />
                   <span className="toggle-slider"></span>
                 </label>

@@ -11,6 +11,9 @@ const store = new Store({
       maxFileSize: null, // null = unlimited
       notifications: true,
       theme: 'dark', // 'dark' or 'light'
+      roundedCorners: false,
+      accentColor: '#ff6700', // Safety Orange (default)
+      compactSidebar: false, // Icon-only sidebar mode
     },
   },
 });

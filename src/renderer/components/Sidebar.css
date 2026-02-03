@@ -7,6 +7,18 @@
   border-right: var(--border);
   display: flex;
   flex-direction: column;
+  transition: width 0.2s ease, min-width 0.2s ease;
+}
+
+/* Compact Sidebar Mode */
+.compact-sidebar .sidebar {
+  width: 60px;
+  min-width: 60px;
+}
+
+.compact-sidebar .sidebar:hover {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
 }
 
 .sidebar-nav {
@@ -27,6 +39,7 @@
   letter-spacing: 0.1em;
   text-decoration: none;
   transition: color 0.1s ease, background-color 0.1s ease;
+  position: relative;
 }
 
 .sidebar-link:hover {
@@ -44,10 +57,62 @@
   height: 16px;
   background-color: transparent;
   transition: background-color 0.1s ease;
+  flex-shrink: 0;
 }
 
 .sidebar-link.active .sidebar-link-indicator {
   background-color: var(--color-accent);
+}
+
+.sidebar-link-text {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Icon in compact mode */
+.sidebar-link-icon {
+  display: none;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.compact-sidebar .sidebar-link {
+  justify-content: center;
+  padding: var(--space-3) var(--space-2);
+}
+
+.compact-sidebar .sidebar-link-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.compact-sidebar .sidebar-link-icon {
+  display: block;
+}
+
+.compact-sidebar .sidebar-link-text {
+  display: none;
+}
+
+.compact-sidebar .sidebar:hover .sidebar-link {
+  justify-content: flex-start;
+  padding: var(--space-3) var(--space-4);
+}
+
+.compact-sidebar .sidebar:hover .sidebar-link-indicator {
+  position: static;
+  transform: none;
+}
+
+.compact-sidebar .sidebar:hover .sidebar-link-icon {
+  display: none;
+}
+
+.compact-sidebar .sidebar:hover .sidebar-link-text {
+  display: block;
 }
 
 /* Profile Section */
@@ -84,4 +149,42 @@
   font-size: var(--font-size-xs);
   color: var(--color-accent);
   font-family: var(--font-mono);
+}
+
+/* Compact profile icon */
+.sidebar-profile-icon {
+  display: none;
+  width: 32px;
+  height: 32px;
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.compact-sidebar .sidebar-profile {
+  padding: var(--space-3);
+}
+
+.compact-sidebar .sidebar-profile-icon {
+  display: flex;
+}
+
+.compact-sidebar .sidebar-profile-content {
+  display: none;
+}
+
+.compact-sidebar .sidebar:hover .sidebar-profile {
+  padding: var(--space-4);
+}
+
+.compact-sidebar .sidebar:hover .sidebar-profile-icon {
+  display: none;
+}
+
+.compact-sidebar .sidebar:hover .sidebar-profile-content {
+  display: flex;
 }

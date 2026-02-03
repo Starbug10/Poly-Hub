@@ -149,10 +149,16 @@
 .gallery-filters {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding: var(--space-4);
   border: var(--border);
   background-color: var(--color-surface);
+}
+
+.gallery-filters-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .filter-search {
@@ -160,9 +166,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: var(--border);
   background-color: var(--color-bg);
+  max-width: 280px;
+  flex-shrink: 0;
 }
 
 .filter-search svg {
@@ -171,7 +179,8 @@
 }
 
 .filter-search-input {
-  flex: 1;
+  width: 100%;
+  min-width: 0;
   border: none;
   background: none;
   font-family: var(--font-mono);
@@ -205,6 +214,7 @@
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  flex: 1;
 }
 
 .filter-select {

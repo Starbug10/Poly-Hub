@@ -295,7 +295,11 @@ function Gallery() {
 
     // Sender filter
     if (filterSender !== 'all') {
-      filtered = filtered.filter(file => file.from?.name === filterSender || file.sharedBy === filterSender);
+      if (filterSender === 'myself') {
+        filtered = filtered.filter(file => file.sharedBy === 'You' || !file.from);
+      } else {
+        filtered = filtered.filter(file => file.from?.name === filterSender || file.sharedBy === filterSender);
+      }
     }
 
     // Sort
@@ -318,14 +322,26 @@ function Gallery() {
     return filtered;
   };
 
-  // Get list of unique senders
+  // Get list of unique senders including "Myself"
   const getUniqueSenders = () => {
     const senders = new Set();
+    let hasSelfFiles = false;
+    
     files.forEach(file => {
       const sender = file.from?.name || file.sharedBy;
-      if (sender) senders.add(sender);
+      if (sender === 'You' || !file.from) {
+        hasSelfFiles = true;
+      } else if (sender) {
+        senders.add(sender);
+      }
     });
-    return Array.from(senders);
+    
+    const result = [];
+    if (hasSelfFiles) {
+      result.push('myself');
+    }
+    result.push(...Array.from(senders).sort());
+    return result;
   };
 
   const hasPeers = peers.length > 0;
@@ -400,69 +416,74 @@ function Gallery() {
       {/* Filter bar */}
       {hasPeers && files.length > 0 && (
         <div className="gallery-filters">
-          <div className="filter-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search files..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="filter-search-input"
-            />
-            {searchQuery && (
-              <button className="filter-clear-btn" onClick={() => setSearchQuery('')}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          <div className="filter-controls">
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
-              <option value="date">Sort: Date</option>
-              <option value="name">Sort: Name</option>
-              <option value="size">Sort: Size</option>
-              <option value="type">Sort: Type</option>
-              <option value="sender">Sort: Sender</option>
-            </select>
-
-            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
-              <option value="all">All Types</option>
-              <option value="images">Images</option>
-              <option value="videos">Videos</option>
-              <option value="audio">Audio</option>
-              <option value="documents">Documents</option>
-              <option value="archives">Archives</option>
-            </select>
-
-            {uniqueSenders.length > 1 && (
-              <select value={filterSender} onChange={(e) => setFilterSender(e.target.value)} className="filter-select">
-                <option value="all">All Senders</option>
-                {uniqueSenders.map((sender) => (
-                  <option key={sender} value={sender}>{sender}</option>
-                ))}
-              </select>
-            )}
-
-            <button className="filter-clear-all-btn" onClick={handleClearAll} title="Delete all files">
+          <div className="gallery-filters-top">
+            <div className="filter-search">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
               </svg>
-              Clear All
-            </button>
+              <input
+                type="search"
+                placeholder="Search files..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="filter-search-input"
+              />
+              {searchQuery && (
+                <button className="filter-clear-btn" onClick={() => setSearchQuery('')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <div className="filter-controls">
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
+                <option value="date">Sort: Date</option>
+                <option value="name">Sort: Name</option>
+                <option value="size">Sort: Size</option>
+                <option value="type">Sort: Type</option>
+                <option value="sender">Sort: Sender</option>
+              </select>
+
+              <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
+                <option value="all">All Types</option>
+                <option value="images">Images</option>
+                <option value="videos">Videos</option>
+                <option value="audio">Audio</option>
+                <option value="documents">Documents</option>
+                <option value="archives">Archives</option>
+              </select>
+
+              {uniqueSenders.length > 0 && (
+                <select value={filterSender} onChange={(e) => setFilterSender(e.target.value)} className="filter-select">
+                  <option value="all">All Senders</option>
+                  {uniqueSenders.map((sender) => (
+                    <option key={sender} value={sender}>
+                      {sender === 'myself' ? 'Myself' : sender}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <button className="filter-clear-all-btn" onClick={handleClearAll} title="Delete all files">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                Clear All
+              </button>
+            </div>
           </div>
 
-          {filteredFiles.length !== files.length && (
-            <div className="filter-results">
-              Showing {filteredFiles.length} of {files.length} files
-            </div>
-          )}
+          <div className="filter-results">
+            {filteredFiles.length !== files.length 
+              ? `Showing ${filteredFiles.length} of ${files.length} files`
+              : `${files.length} file${files.length !== 1 ? 's' : ''} total`
+            }
+          </div>
         </div>
       )}
 
