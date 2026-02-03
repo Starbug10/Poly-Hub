@@ -131,6 +131,8 @@ class PeerServer extends EventEmitter {
                 bytesReceived,
                 totalBytes: fileInfo.size,
                 progress: Math.round((bytesReceived / fileInfo.size) * 100),
+                relativePath: fileInfo.relativePath || null,
+                localPath: fileInfo.localPath,
               });
             }
           } catch (e) {
@@ -156,6 +158,8 @@ class PeerServer extends EventEmitter {
             bytesReceived,
             totalBytes: fileInfo.size,
             progress,
+            relativePath: fileInfo.relativePath || null,
+            localPath: fileInfo.localPath,
           });
         }
       }

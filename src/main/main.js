@@ -9,6 +9,7 @@ const { PeerServer, sendPairRequest, announceFile, announceFileDelete, announceP
 let mainWindow;
 let peerServer;
 let folderWatcher = null;
+let receivingFiles = new Set(); // Track files currently being received to prevent duplicates
 
 const isDev = !app.isPackaged;
 
@@ -75,6 +76,15 @@ async function startPeerServer() {
   // Handle actual file transfers (new style - file data included)
   peerServer.on('file-received', (data) => {
     console.log(`[MAIN] File received: ${data.file.name} from ${data.from.name}`);
+    
+    // Remove from receiving set
+    if (data.file.path) {
+      receivingFiles.delete(data.file.path);
+    }
+    if (data.file.localPath) {
+      receivingFiles.delete(data.file.localPath);
+    }
+    
     const file = {
       ...data.file,
       from: data.from,
@@ -97,6 +107,10 @@ async function startPeerServer() {
   // Handle file transfer progress
   peerServer.on('file-progress', (data) => {
     console.log(`[MAIN] File progress: ${data.fileName} - ${data.progress}%`);
+    // Track this file as being received using localPath directly
+    if (data.localPath) {
+      receivingFiles.add(data.localPath);
+    }
     mainWindow.webContents.send('file:progress', data);
   });
 
@@ -179,7 +193,7 @@ function setupFolderWatcher(syncFolder) {
   });
   
   // Watch for new files
-  folderWatcher = fs.watch(syncFolder, { recursive: false }, async (eventType, filename) => {
+  folderWatcher = fs.watch(syncFolder, { recursive: true }, async (eventType, filename) => {
     if (eventType !== 'rename' || !filename) return;
     
     const filePath = path.join(syncFolder, filename);
@@ -194,8 +208,20 @@ function setupFolderWatcher(syncFolder) {
     // Skip if already tracked
     if (existingFiles.has(filePath)) return;
     
+    // Skip if file is currently being received from a peer
+    if (receivingFiles.has(filePath)) {
+      console.log(`[MAIN] Skipping file (currently receiving): ${filename}`);
+      return;
+    }
+    
     // Skip temporary files
     if (filename.startsWith('.') || filename.endsWith('.tmp')) return;
+    
+    // Skip files with 0 size (still being written)
+    if (stats.size === 0) {
+      console.log(`[MAIN] Skipping file (0 bytes, possibly still writing): ${filename}`);
+      return;
+    }
     
     console.log(`[MAIN] New file detected in sync folder: ${filename}`);
     existingFiles.add(filePath);
