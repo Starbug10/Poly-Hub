@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="assets/PolyHub.png" alt="PolyHub Banner" style="max-width: 100%; height: 120px; object-fit: contain;" />
+    <img src="assets/PolyHub.png" alt="PolyHub Banner" style="max-width: 100%; height: 320px; object-fit: contain;" />
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
     <a href="https://tailscale.com"><img src="https://img.shields.io/badge/Tailscale-000000?style=for-the-badge&logo=tailscale&logoColor=white" alt="Tailscale" /></a>
 </p>
 
-# Poly-Hub V1.0.0
+# Poly-Hub v1.0.0
 
 > P2P file sharing between trusted users over Tailscale. Built for massive files (5GB+), instant sharing, and a brutalist aesthetic.
 
