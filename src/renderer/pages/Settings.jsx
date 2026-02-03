@@ -25,7 +25,11 @@ function Settings() {
 
   async function loadData() {
     const currentSettings = await window.electronAPI.getSettings();
-    setSettings(currentSettings);
+    // Ensure maxFileSize is always a string for controlled input
+    setSettings({
+      ...currentSettings,
+      maxFileSize: currentSettings.maxFileSize != null ? String(currentSettings.maxFileSize) : ''
+    });
 
     // Apply saved theme on load
     document.documentElement.setAttribute('data-theme', currentSettings.theme || 'dark');
@@ -60,7 +64,7 @@ function Settings() {
     const value = e.target.value;
     setSettings((prev) => ({
       ...prev,
-      maxFileSize: value === '' ? null : parseInt(value, 10),
+      maxFileSize: value,
     }));
   };
 

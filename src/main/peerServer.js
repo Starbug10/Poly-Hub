@@ -35,7 +35,8 @@ class PeerServer extends EventEmitter {
       });
 
       this.server.listen(POLY_HUB_PORT, '0.0.0.0', () => {
-        console.log(`Poly-Hub peer server listening on port ${POLY_HUB_PORT}`);
+        console.log(`[PEER-SERVER] Started listening on port ${POLY_HUB_PORT}`);
+        console.log(`[PEER-SERVER] Ready to accept peer connections`);
         this.startFileServer().then(resolve).catch(reject);
       });
     });
@@ -55,7 +56,8 @@ class PeerServer extends EventEmitter {
       });
 
       this.fileServer.listen(FILE_TRANSFER_PORT, '0.0.0.0', () => {
-        console.log(`Poly-Hub file server listening on port ${FILE_TRANSFER_PORT}`);
+        console.log(`[FILE-SERVER] Started listening on port ${FILE_TRANSFER_PORT}`);
+        console.log(`[FILE-SERVER] Ready to receive file transfers`);
         resolve();
       });
     });
@@ -101,7 +103,8 @@ class PeerServer extends EventEmitter {
         
         try {
           fs.writeFileSync(destPath, fileBuffer);
-          console.log(`File received and saved: ${destPath}`);
+          console.log(`[FILE-SERVER] File received: ${fileInfo.name} (${fileInfo.size} bytes) from ${fileInfo.from.name}`);
+          console.log(`[FILE-SERVER] Saved to: ${destPath}`);
           
           // Emit event with local path
           this.emit('file-received', {
@@ -112,7 +115,7 @@ class PeerServer extends EventEmitter {
             from: fileInfo.from,
           });
         } catch (err) {
-          console.error('Failed to save received file:', err);
+          console.error(`[FILE-SERVER] ERROR: Failed to save file ${fileInfo.name}:`, err);
         }
       }
     });
@@ -127,7 +130,7 @@ class PeerServer extends EventEmitter {
    */
   handleConnection(socket) {
     const remoteAddress = socket.remoteAddress;
-    console.log(`Peer connected from ${remoteAddress}`);
+    console.log(`[PEER-SERVER] New connection from ${remoteAddress}`);
 
     let buffer = '';
 
@@ -157,11 +160,12 @@ class PeerServer extends EventEmitter {
    * Handle incoming message from peer
    */
   handleMessage(message, socket) {
-    console.log('Received message:', message.type);
+    console.log(`[PEER-SERVER] Received message: ${message.type}`);
 
     switch (message.type) {
       case 'PAIR_REQUEST':
         // Someone is trying to pair with us
+        console.log(`[PEER-SERVER] Pair request from ${message.name} (${message.ip})`);
         this.emit('pair-request', {
           name: message.name,
           ip: message.ip,
@@ -171,6 +175,7 @@ class PeerServer extends EventEmitter {
           type: 'PAIR_ACK',
           success: true,
         });
+        console.log(`[PEER-SERVER] Accepted pairing with ${message.name}`);
         break;
 
       case 'FILE_ANNOUNCE':
@@ -183,6 +188,7 @@ class PeerServer extends EventEmitter {
 
       case 'FILE_DELETE':
         // Peer is deleting a file
+        console.log(`[PEER-SERVER] File delete request: ${message.fileId}`);
         this.emit('file-delete', {
           fileId: message.fileId,
           from: message.from,
@@ -191,13 +197,14 @@ class PeerServer extends EventEmitter {
 
       case 'PROFILE_UPDATE':
         // Peer is updating their profile
+        console.log(`[PEER-SERVER] Profile update from ${message.profile.name} (${message.profile.ip})`);
         this.emit('profile-update', {
           profile: message.profile,
         });
         break;
 
       default:
-        console.log('Unknown message type:', message.type);
+        console.log(`[PEER-SERVER] WARNING: Unknown message type: ${message.type}`);
     }
   }
 
@@ -297,7 +304,7 @@ function sendFile(peerIP, file, from) {
 
     socket.connect(FILE_TRANSFER_PORT, peerIP, () => {
       clearTimeout(timeout);
-      console.log(`Sending file ${file.name} to ${peerIP}`);
+      console.log(`[FILE-TRANSFER] Sending file ${file.name} (${file.size} bytes) to ${peerIP}`);
 
       // Create header with file info
       const header = JSON.stringify({
@@ -321,7 +328,7 @@ function sendFile(peerIP, file, from) {
       socket.write(fileBuffer);
       socket.end();
       
-      console.log(`File ${file.name} sent successfully`);
+      console.log(`[FILE-TRANSFER] Successfully sent ${file.name} to ${peerIP}`);
       resolve({ success: true });
     });
 

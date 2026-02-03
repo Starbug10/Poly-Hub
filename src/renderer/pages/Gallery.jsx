@@ -303,32 +303,102 @@ function Gallery() {
 }
 
 function isImageFile(type) {
-  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'];
+  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
   return imageTypes.includes(type?.toLowerCase());
 }
 
 function getFileIcon(type) {
   const icons = {
+    // Folders
     folder: '📁',
+    
+    // Archives
     zip: '📦',
     rar: '📦',
     '7z': '📦',
+    tar: '📦',
+    gz: '📦',
+    bz2: '📦',
+    
+    // Documents
     pdf: '📄',
     doc: '📝',
     docx: '📝',
     txt: '📝',
+    rtf: '📝',
+    odt: '📝',
+    
+    // Spreadsheets
+    xls: '📊',
+    xlsx: '📊',
+    csv: '📊',
+    ods: '📊',
+    
+    // Presentations
+    ppt: '📽',
+    pptx: '📽',
+    odp: '📽',
+    
+    // Images
     jpg: '🖼',
     jpeg: '🖼',
     png: '🖼',
     gif: '🖼',
+    bmp: '🖼',
+    svg: '🖼',
+    webp: '🖼',
+    ico: '🖼',
+    tiff: '🖼',
+    tif: '🖼',
+    heic: '🖼',
+    heif: '🖼',
+    
+    // Videos
     mp4: '🎬',
     mkv: '🎬',
     avi: '🎬',
+    mov: '🎬',
+    wmv: '🎬',
+    flv: '🎬',
+    webm: '🎬',
+    m4v: '🎬',
+    
+    // Audio
     mp3: '🎵',
     wav: '🎵',
     flac: '🎵',
+    aac: '🎵',
+    ogg: '🎵',
+    wma: '🎵',
+    m4a: '🎵',
+    opus: '🎵',
+    
+    // Code
+    js: '💻',
+    jsx: '💻',
+    ts: '💻',
+    tsx: '💻',
+    py: '💻',
+    java: '💻',
+    cpp: '💻',
+    c: '💻',
+    cs: '💻',
+    php: '💻',
+    rb: '💻',
+    go: '💻',
+    rs: '💻',
+    html: '💻',
+    css: '💻',
+    json: '💻',
+    xml: '💻',
+    
+    // Executables
     exe: '⚙',
     msi: '⚙',
+    dmg: '⚙',
+    app: '⚙',
+    deb: '⚙',
+    rpm: '⚙',
   };
   return icons[type?.toLowerCase()] || '▢';
 }

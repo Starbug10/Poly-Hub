@@ -59,27 +59,27 @@
   --theme: dark;
 }
 
-/* Light Theme — Warm Cream/Brown */
+/* Light Theme — Notion-Inspired */
 [data-theme="light"] {
-  /* Base: warm cream with brownish undertones */
-  --color-bg: oklch(0.94 0.018 75);             /* Light cream background */
-  --color-surface: oklch(0.88 0.028 70);        /* Warm cream surface */
-  --color-surface-elevated: oklch(0.82 0.038 65); /* Tan/light brown */
-  --color-border: oklch(0.55 0.05 55);          /* Brown border */
-  --color-border-subtle: oklch(0.70 0.035 65);  /* Subtle tan border */
-  --color-text: oklch(0.20 0.03 45);            /* Dark brown text */
-  --color-text-muted: oklch(0.40 0.04 50);      /* Muted brown text */
-  --color-text-dim: oklch(0.50 0.035 55);       /* Dim brown text */
-  --color-accent: #d44800;                      /* Burnt orange for cream bg */
+  /* Base: Notion's soft gray-white palette */
+  --color-bg: #ffffff;                          /* Pure white background */
+  --color-surface: #f7f6f3;                     /* Notion off-white surface */
+  --color-surface-elevated: #efeeea;            /* Subtle elevated surface */
+  --color-border: #e3e2df;                      /* Notion border gray */
+  --color-border-subtle: #ebebea;               /* Very subtle border */
+  --color-text: #37352f;                        /* Notion dark text */
+  --color-text-muted: #787774;                  /* Notion muted text */
+  --color-text-dim: #9b9a97;                    /* Notion dim text */
+  --color-accent: #d44800;                      /* Burnt orange accent */
   --color-accent-dim: #b33d00;
-  --color-success: #3d6b40;                     /* Darker green for contrast */
-  --color-error: #992828;                       /* Darker red for contrast */
-  --color-warning: #a67a0a;
+  --color-success: #0f7b6c;                     /* Notion teal green */
+  --color-error: #e03e3e;                       /* Notion red */
+  --color-warning: #f9a825;                     /* Notion yellow */
 
-  /* Shadows — Brown tones for light theme */
-  --shadow-sm: 2px 2px 0 oklch(0.55 0.05 55);
-  --shadow-md: 4px 4px 0 oklch(0.45 0.06 50);
-  --shadow-lg: 6px 6px 0 oklch(0.35 0.06 45);
+  /* Shadows — Subtle gray for light theme */
+  --shadow-sm: 2px 2px 0 #e3e2df;
+  --shadow-md: 4px 4px 0 #d3d1cb;
+  --shadow-lg: 6px 6px 0 #b3b1ab;
   --shadow-accent: 4px 4px 0 var(--color-accent);
 
   /* Theme flag */

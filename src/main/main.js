@@ -40,11 +40,22 @@ async function startPeerServer() {
 
   // Handle incoming pair requests (reverse-add)
   peerServer.on('pair-request', (peerData) => {
-    console.log('Received pair request from:', peerData.name);
+    console.log(`[MAIN] Received pair request from: ${peerData.name} (${peerData.ip})`);
     const result = addPeer(peerData);
     if (result.success) {
+      console.log(`[MAIN] Successfully added peer: ${peerData.name}`);
       // Notify renderer about new peer
       mainWindow.webContents.send('peer:added', peerData);
+      
+      // Show notification
+      const settings = getSettings();
+      if (settings.notifications) {
+        const { Notification } = require('electron');
+        new Notification({
+          title: 'New Peer Connected',
+          body: `${peerData.name} has connected to PolyHub`,
+        }).show();
+      }
     }
   });
 
@@ -62,7 +73,7 @@ async function startPeerServer() {
 
   // Handle actual file transfers (new style - file data included)
   peerServer.on('file-received', (data) => {
-    console.log('Received file transfer:', data.file.name);
+    console.log(`[MAIN] File received: ${data.file.name} from ${data.from.name}`);
     const file = {
       ...data.file,
       from: data.from,
@@ -70,18 +81,28 @@ async function startPeerServer() {
     };
     addSharedFile(file);
     mainWindow.webContents.send('file:received', file);
+    
+    // Show notification
+    const settings = getSettings();
+    if (settings.notifications) {
+      const { Notification } = require('electron');
+      new Notification({
+        title: 'File Received',
+        body: `${data.from.name} shared ${data.file.name}`,
+      }).show();
+    }
   });
 
   // Handle incoming file deletion
   peerServer.on('file-delete', (data) => {
-    console.log('Received file deletion:', data.fileId);
+    console.log(`[MAIN] File deletion received: ${data.fileId}`);
     removeSharedFile(data.fileId);
     mainWindow.webContents.send('file:deleted', data.fileId);
   });
 
   // Handle incoming profile updates
   peerServer.on('profile-update', (data) => {
-    console.log('Received profile update from:', data.profile.ip);
+    console.log(`[MAIN] Profile update received: ${data.profile.name} (${data.profile.ip})`);
     updatePeer(data.profile.ip, { name: data.profile.name });
     mainWindow.webContents.send('peer:updated', data.profile);
   });
@@ -91,11 +112,13 @@ async function startPeerServer() {
   let syncFolder = settings.syncFolder;
   if (!syncFolder) {
     syncFolder = path.join(app.getPath('documents'), 'PolyHub');
+    console.log(`[MAIN] No sync folder configured, creating default: ${syncFolder}`);
     if (!fs.existsSync(syncFolder)) {
       fs.mkdirSync(syncFolder, { recursive: true });
     }
     updateSettings({ syncFolder });
   }
+  console.log(`[MAIN] Using sync folder: ${syncFolder}`);
   peerServer.setSyncFolder(syncFolder);
 
   try {
@@ -106,14 +129,20 @@ async function startPeerServer() {
 }
 
 app.whenReady().then(async () => {
+  console.log('[MAIN] PolyHub starting up...');
+  
   // Register custom protocol for loading local file thumbnails
   protocol.registerFileProtocol('polyhub-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('polyhub-file://', ''));
     callback({ path: filePath });
   });
+  console.log('[MAIN] Registered custom protocol: polyhub-file://');
 
   createWindow();
+  console.log('[MAIN] Main window created');
+  
   await startPeerServer();
+  console.log('[MAIN] PolyHub ready');
 });
 
 app.on('window-all-closed', () => {
@@ -279,6 +308,7 @@ function getFolderSize(dirPath) {
 
 // Share files with peers
 ipcMain.handle('files:share', async (event, files) => {
+  console.log(`[MAIN] Sharing ${files.length} file(s)`);
   const profile = getProfile();
   const peers = getPeers();
   const settings = getSettings();
@@ -297,6 +327,7 @@ ipcMain.handle('files:share', async (event, files) => {
   for (const file of files) {
     // Copy file to sync folder
     const destPath = path.join(syncFolder, file.name);
+    console.log(`[MAIN] Copying ${file.name} to sync folder: ${destPath}`);
     try {
       if (file.type === 'folder') {
         // For folders, just create reference (actual sync not implemented yet)
@@ -308,7 +339,7 @@ ipcMain.handle('files:share', async (event, files) => {
         fs.copyFileSync(file.path, destPath);
       }
     } catch (err) {
-      console.error(`Failed to copy file ${file.name}:`, err);
+      console.error(`[MAIN] ERROR: Failed to copy file ${file.name}:`, err);
       continue;
     }
 
@@ -325,6 +356,7 @@ ipcMain.handle('files:share', async (event, files) => {
     addSharedFile(sharedFile);
 
     // Announce to all peers
+    console.log(`[MAIN] Announcing ${file.name} to ${peers.length} peer(s)`);
     for (const peer of peers) {
       await announceFile(peer.ip, sharedFile, profile);
     }
@@ -332,6 +364,7 @@ ipcMain.handle('files:share', async (event, files) => {
     results.push(sharedFile);
   }
 
+  console.log(`[MAIN] Successfully shared ${results.length} file(s)`);
   return results;
 });
 
