@@ -149,11 +149,37 @@
   background-color: var(--color-surface);
 }
 
+.rounded-corners .peer-card {
+  border-radius: var(--border-radius);
+}
+
+.peer-status-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .peer-status-dot {
   width: 8px;
   height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-text-dim);
+}
+
+.peer-status-dot.online {
   background-color: var(--color-success);
-  border-radius: 0; /* Brutalist square dot */
+}
+
+.peer-status-dot.offline {
+  background-color: var(--color-error);
+}
+
+.peer-status-label {
+  font-size: 8px;
+  color: var(--color-text-dim);
+  letter-spacing: 0.1em;
+  font-weight: 600;
 }
 
 .peer-info {

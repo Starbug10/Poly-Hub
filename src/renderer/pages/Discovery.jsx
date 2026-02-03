@@ -175,7 +175,10 @@ function Discovery({ profile }) {
             <div className="peers-list">
               {peers.map((peer) => (
                 <div key={peer.ip} className="peer-card">
-                  <div className="peer-status-dot" />
+                  <div className="peer-status-indicator">
+                    <div className="peer-status-dot online" />
+                    <span className="peer-status-label">ONLINE</span>
+                  </div>
                   <div className="peer-info">
                     <span className="peer-name">{peer.name}</span>
                     <span className="peer-ip">{peer.ip}</span>

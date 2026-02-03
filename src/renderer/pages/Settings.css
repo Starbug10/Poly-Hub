@@ -74,6 +74,14 @@
   border-bottom: none;
 }
 
+.setting-row:hover {
+  background-color: transparent;
+}
+
+.setting-row:active {
+  background-color: transparent;
+}
+
 /* Label */
 .setting-label {
   display: flex;
@@ -189,6 +197,11 @@
   overflow: hidden;
 }
 
+[data-theme="light"] .theme-switcher {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
 .theme-btn {
   flex: 1;
   padding: var(--space-2) var(--space-4);
@@ -235,20 +248,24 @@
 }
 
 .color-picker-input {
-  width: 50px;
-  height: 36px;
-  border: var(--border);
+  width: 40px;
+  height: 40px;
+  border: none;
   background: none;
   cursor: pointer;
-  padding: 2px;
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
 }
 
 .color-picker-input::-webkit-color-swatch-wrapper {
   padding: 0;
+  border-radius: 50%;
 }
 
 .color-picker-input::-webkit-color-swatch {
   border: none;
+  border-radius: 50%;
 }
 
 .color-picker-value {

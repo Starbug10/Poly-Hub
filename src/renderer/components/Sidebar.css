@@ -28,6 +28,12 @@
   flex: 1;
 }
 
+.sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+}
+
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -126,11 +132,44 @@
   margin-bottom: var(--space-4);
 }
 
-.sidebar-profile-content {
+.sidebar-profile-header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-1);
+}
+
+.sidebar-profile-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+  letter-spacing: 0.15em;
+}
+
+.sidebar-profile-status {
+  display: flex;
+  align-items: center;
   gap: var(--space-1);
 }
+
+.sidebar-profile-status .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-text-dim);
+}
+
+.sidebar-profile-status.online .status-dot {
+  background-color: var(--color-success);
+}
+
+.sidebar-profile-status.offline .status-dot {
+  background-color: var(--color-error);
+}
+
+.sidebar-profile-status .status-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+  letter-spacing: 0.1em
 
 .sidebar-profile-label {
   font-size: var(--font-size-xs);
@@ -148,7 +187,12 @@
 .sidebar-profile-ip {
   font-size: var(--font-size-xs);
   color: var(--color-accent);
-  font-family: var(--font-mono);
+ 
+
+.compact-sidebar .sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+} font-family: var(--font-mono);
 }
 
 /* Compact profile icon */

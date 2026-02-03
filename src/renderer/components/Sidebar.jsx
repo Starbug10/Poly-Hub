@@ -32,6 +32,9 @@ function Sidebar({ profile }) {
           </svg>
           <span className="sidebar-link-text">DISCOVER</span>
         </NavLink>
+      </nav>
+
+      <div className="sidebar-bottom">
         <NavLink
           to="/settings"
           className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
@@ -43,17 +46,23 @@ function Sidebar({ profile }) {
           </svg>
           <span className="sidebar-link-text">SETTINGS</span>
         </NavLink>
-      </nav>
 
-      <div className="sidebar-profile">
-        <div className="sidebar-profile-divider" />
-        <div className="sidebar-profile-icon">
-          {profile?.name?.[0]?.toUpperCase() || 'U'}
-        </div>
-        <div className="sidebar-profile-content">
-          <div className="sidebar-profile-label">PROFILE</div>
-          <div className="sidebar-profile-name">{profile?.name || 'Unknown'}</div>
-          <div className="sidebar-profile-ip">{profile?.ip || '—'}</div>
+        <div className="sidebar-profile">
+          <div className="sidebar-profile-divider" />
+          <div className="sidebar-profile-icon">
+            {profile?.name?.[0]?.toUpperCase() || 'U'}
+          </div>
+          <div className="sidebar-profile-content">
+            <div className="sidebar-profile-header">
+              <div className="sidebar-profile-label">PROFILE</div>
+              <div className="sidebar-profile-status online">
+                <span className="status-dot"></span>
+                <span className="status-text">ONLINE</span>
+              </div>
+            </div>
+            <div className="sidebar-profile-name">{profile?.name || 'Unknown'}</div>
+            <div className="sidebar-profile-ip">{profile?.ip || '—'}</div>
+          </div>
         </div>
       </div>
     </aside>

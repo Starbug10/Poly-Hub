@@ -197,11 +197,12 @@
   scrollbar-color: var(--color-border) var(--color-bg);
 }
 
-*:not(:hover)::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-*::-webkit-scrollbar-thumb {
+*:hover::-webkit-scrollbar-thumb {
   opacity: 1;
 }
 
