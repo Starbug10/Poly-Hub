@@ -1,3 +1,14 @@
+<p align="center">
+    <img src="assets/PolyHub.png" alt="PolyHub Banner" style="max-width: 100%; height: 120px; object-fit: contain;" />
+</p>
+
+<p align="center">
+    <a href="https://electronjs.org"><img src="https://img.shields.io/badge/Electron-191970?style=for-the-badge&logo=electron&logoColor=white" alt="Electron" /></a>
+    <a href="https://react.dev"><img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" /></a>
+    <a href="https://vitejs.dev"><img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" /></a>
+    <a href="https://tailscale.com"><img src="https://img.shields.io/badge/Tailscale-000000?style=for-the-badge&logo=tailscale&logoColor=white" alt="Tailscale" /></a>
+</p>
+
 # Poly-Hub V1.0.0
 
 > P2P file sharing between trusted users over Tailscale. Built for massive files (5GB+), instant sharing, and a brutalist aesthetic.
@@ -20,12 +31,12 @@ Poly-Hub connects 2-3 users via Tailscale's encrypted mesh network to share file
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| **App Framework** | Electron + React |
-| **Network Layer** | Tailscale (P2P mesh, NAT traversal, encryption) |
-| **Sync Protocol** | Custom TCP over Tailscale IPs (100.x.x.x range) |
-| **Platform** | Windows first (macOS/Linux possible via Electron) |
+| Layer             | Technology                                        |
+| ----------------- | ------------------------------------------------- |
+| **App Framework** | Electron + React                                  |
+| **Network Layer** | Tailscale (P2P mesh, NAT traversal, encryption)   |
+| **Sync Protocol** | Custom TCP over Tailscale IPs (100.x.x.x range)   |
+| **Platform**      | Windows first (macOS/Linux possible via Electron) |
 
 ### Architecture
 
@@ -51,12 +62,12 @@ Poly-Hub connects 2-3 users via Tailscale's encrypted mesh network to share file
 
 ### Pages
 
-| Page | Description |
-|------|-------------|
+| Page           | Description                                          |
+| -------------- | ---------------------------------------------------- |
 | **Onboarding** | Tailscale detection → Profile setup (name + auto IP) |
-| **Discovery** | Generate/receive pairing links to connect users |
-| **Gallery** | Shared files grid — main workspace |
-| **Profile** | User info in sidebar |
+| **Discovery**  | Generate/receive pairing links to connect users      |
+| **Gallery**    | Shared files grid — main workspace                   |
+| **Profile**    | User info in sidebar                                 |
 
 ### Layout
 
@@ -144,6 +155,7 @@ Poly-Hub connects 2-3 users via Tailscale's encrypted mesh network to share file
 5. **Both users** now see each other as connected peers
 
 **Requirements:**
+
 - Both users must have Tailscale installed and running
 - Both users must complete profile setup before pairing works
 - Users must be on the same Tailscale network (tailnet)
@@ -154,19 +166,20 @@ Poly-Hub connects 2-3 users via Tailscale's encrypted mesh network to share file
 
 ### Brutalist Aesthetic
 
-| Element | Rule |
-|---------|------|
-| **Typography** | Monospace fonts only (JetBrains Mono, IBM Plex Mono). No Inter, no system-ui |
-| **Colors** | OKLCH earth tones, Safety Orange (#FF6700), high-contrast monochrome. No purple/indigo/blue gradients |
-| **Layout** | Sharp 0px corners, offset grids, editorial magazine-style. No centered rounded cards |
-| **Texture** | Film grain, noise overlays, 1px borders. No Gaussian blur, no plastic finishes |
-| **Visuals** | Custom SVG line art, lo-fi textures. No emojis, no 3D clay icons |
-| **Shadows** | Hard offset "Brutalist" shadows (e.g., `4px 4px 0 #000`). No soft glows |
-| **Motion** | Staggered reveals, kinetic typography. No generic fades |
+| Element        | Rule                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| **Typography** | Monospace fonts only (JetBrains Mono, IBM Plex Mono). No Inter, no system-ui                          |
+| **Colors**     | OKLCH earth tones, Safety Orange (#FF6700), high-contrast monochrome. No purple/indigo/blue gradients |
+| **Layout**     | Sharp 0px corners, offset grids, editorial magazine-style. No centered rounded cards                  |
+| **Texture**    | Film grain, noise overlays, 1px borders. No Gaussian blur, no plastic finishes                        |
+| **Visuals**    | Custom SVG line art, lo-fi textures. No emojis, no 3D clay icons                                      |
+| **Shadows**    | Hard offset "Brutalist" shadows (e.g., `4px 4px 0 #000`). No soft glows                               |
+| **Motion**     | Staggered reveals, kinetic typography. No generic fades                                               |
 
 ### Color Palette
 
 #### Dark Theme (Default)
+
 ```
 --color-bg:        #0d0d0d;                 /* Near black */
 --color-surface:   #1a1a1a;                 /* Dark surface */
@@ -176,6 +189,7 @@ Poly-Hub connects 2-3 users via Tailscale's encrypted mesh network to share file
 ```
 
 #### Light Theme (Warm Beige)
+
 ```
 --color-bg:        oklch(0.92 0.025 87.3);  /* Light beige background */
 --color-surface:   oklch(0.8595 0.0329 87.3); /* Warm beige */
@@ -183,7 +197,6 @@ Poly-Hub connects 2-3 users via Tailscale's encrypted mesh network to share file
 --color-text:      oklch(0.18 0.02 60);     /* Near black text */
 --color-accent:    #e55a00;                 /* Darker orange for contrast */
 ```
-
 
 ---
 
