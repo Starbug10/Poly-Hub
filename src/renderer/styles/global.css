@@ -2,7 +2,7 @@
    POLY-HUB — BRUTALIST DESIGN SYSTEM
    ======================================== */
 
-/* CSS Custom Properties */
+/* CSS Custom Properties — Dark Theme (Default) */
 :root {
   /* Colors — OKLCH earth tones + safety orange */
   --color-bg: #0d0d0d;
@@ -54,6 +54,36 @@
   /* Layout */
   --sidebar-width: 220px;
   --titlebar-height: 40px;
+
+  /* Theme flag */
+  --theme: dark;
+}
+
+/* Light Theme — Warm Beige */
+[data-theme="light"] {
+  /* Base: oklch(0.8595 0.0329 87.3) = warm beige */
+  --color-bg: oklch(0.92 0.025 87.3);           /* Light beige background */
+  --color-surface: oklch(0.8595 0.0329 87.3);   /* The beige you specified */
+  --color-surface-elevated: oklch(0.82 0.035 87.3); /* Slightly darker beige */
+  --color-border: oklch(0.65 0.04 87.3);        /* Warm brown border */
+  --color-border-subtle: oklch(0.75 0.03 87.3); /* Subtle warm border */
+  --color-text: oklch(0.18 0.02 60);            /* Near black text */
+  --color-text-muted: oklch(0.45 0.03 60);      /* Muted brown text */
+  --color-text-dim: oklch(0.55 0.025 70);       /* Dim warm text */
+  --color-accent: #e55a00;                      /* Slightly darker orange for contrast */
+  --color-accent-dim: #cc5200;
+  --color-success: #3d6b40;                     /* Darker green for contrast */
+  --color-error: #992828;                       /* Darker red for contrast */
+  --color-warning: #a67a0a;
+
+  /* Shadows — Darker for light theme */
+  --shadow-sm: 2px 2px 0 oklch(0.65 0.04 87.3);
+  --shadow-md: 4px 4px 0 oklch(0.55 0.05 87.3);
+  --shadow-lg: 6px 6px 0 oklch(0.45 0.05 80);
+  --shadow-accent: 4px 4px 0 var(--color-accent);
+
+  /* Theme flag */
+  --theme: light;
 }
 
 /* Reset */

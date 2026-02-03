@@ -166,15 +166,24 @@ Poly-Hub connects 2-3 users via Tailscale's encrypted mesh network to share file
 
 ### Color Palette
 
+#### Dark Theme (Default)
 ```
---color-bg:        oklch(15% 0.01 60);      /* Near black */
---color-surface:   oklch(20% 0.02 60);      /* Dark surface */
---color-border:    oklch(40% 0.01 60);      /* Muted border */
---color-text:      oklch(90% 0.01 60);      /* Off-white text */
---color-accent:    oklch(70% 0.18 50);      /* Safety Orange */
---color-success:   oklch(65% 0.15 145);     /* Muted green */
---color-error:     oklch(55% 0.20 25);      /* Brick red */
+--color-bg:        #0d0d0d;                 /* Near black */
+--color-surface:   #1a1a1a;                 /* Dark surface */
+--color-border:    #3d3d3d;                 /* Muted border */
+--color-text:      #e8e8e8;                 /* Off-white text */
+--color-accent:    #ff6700;                 /* Safety Orange */
 ```
+
+#### Light Theme (Warm Beige)
+```
+--color-bg:        oklch(0.92 0.025 87.3);  /* Light beige background */
+--color-surface:   oklch(0.8595 0.0329 87.3); /* Warm beige */
+--color-border:    oklch(0.65 0.04 87.3);   /* Warm brown border */
+--color-text:      oklch(0.18 0.02 60);     /* Near black text */
+--color-accent:    #e55a00;                 /* Darker orange for contrast */
+```
+
 
 ---
 

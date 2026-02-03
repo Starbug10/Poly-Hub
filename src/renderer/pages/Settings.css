@@ -1,0 +1,224 @@
+/* Settings Styles */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--space-6);
+}
+
+/* Header */
+.settings-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-bottom: var(--border);
+  padding-bottom: var(--space-5);
+}
+
+.settings-title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.settings-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Content */
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 700px;
+}
+
+/* Section */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.settings-section .section-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Card */
+.settings-card {
+  border: var(--border);
+  background-color: var(--color-surface);
+}
+
+/* Row */
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4);
+  border-bottom: var(--border);
+  gap: var(--space-4);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+/* Label */
+.setting-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.label-title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.label-description {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+}
+
+/* Value */
+.setting-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.value-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.value-mono {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+.value-unit {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+}
+
+/* Input */
+.setting-input {
+  width: 100px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  text-align: right;
+}
+
+/* Button */
+.setting-btn {
+  font-size: var(--font-size-xs);
+  padding: var(--space-2) var(--space-3);
+  letter-spacing: 0.1em;
+}
+
+/* Toggle */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-bg);
+  border: var(--border);
+  transition: 0.15s;
+}
+
+.toggle-slider::before {
+  position: absolute;
+  content: '';
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--color-text-muted);
+  transition: 0.15s;
+}
+
+.toggle input:checked + .toggle-slider {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.toggle input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+  background-color: var(--color-bg);
+}
+
+/* Theme Switcher */
+.theme-switcher {
+  display: flex;
+  border: var(--border);
+}
+
+.theme-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  border: none;
+  background-color: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.theme-btn:first-child {
+  border-right: var(--border);
+}
+
+.theme-btn:hover {
+  color: var(--color-text);
+  background-color: var(--color-surface-elevated);
+}
+
+.theme-btn.active {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.theme-btn:active {
+  transform: none;
+}
+
+/* Peer Status */
+.peer-status {
+  font-size: var(--font-size-xs);
+  color: var(--color-success);
+  letter-spacing: 0.05em;
+}
+
+/* Actions */
+.settings-actions {
+  padding-top: var(--space-4);
+  border-top: var(--border);
+}

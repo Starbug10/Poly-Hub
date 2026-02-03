@@ -20,6 +20,13 @@ function Sidebar({ profile }) {
           <span className="sidebar-link-indicator" />
           <span>DISCOVER</span>
         </NavLink>
+        <NavLink
+          to="/settings"
+          className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="sidebar-link-indicator" />
+          <span>SETTINGS</span>
+        </NavLink>
       </nav>
 
       <div className="sidebar-profile">

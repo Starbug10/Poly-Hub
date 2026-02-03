@@ -5,9 +5,12 @@ const store = new Store({
   defaults: {
     profile: null,
     peers: [],
+    sharedFiles: [],
     settings: {
       syncFolder: null,
       maxFileSize: null, // null = unlimited
+      notifications: true,
+      theme: 'dark', // 'dark' or 'light'
     },
   },
 });
@@ -77,6 +80,46 @@ function updateSettings(settings) {
   return getSettings();
 }
 
+/**
+ * Get shared files
+ */
+function getSharedFiles() {
+  return store.get('sharedFiles') || [];
+}
+
+/**
+ * Add a shared file
+ */
+function addSharedFile(file) {
+  const files = getSharedFiles();
+  
+  // Check if file already exists (by id or path)
+  const exists = files.some((f) => f.id === file.id || f.path === file.path);
+  if (exists) {
+    return { success: false, reason: 'File already shared' };
+  }
+  
+  files.push(file);
+  store.set('sharedFiles', files);
+  return { success: true, files: getSharedFiles() };
+}
+
+/**
+ * Remove a shared file
+ */
+function removeSharedFile(fileId) {
+  const files = getSharedFiles().filter((f) => f.id !== fileId);
+  store.set('sharedFiles', files);
+  return { success: true, files };
+}
+
+/**
+ * Clear all data (for testing/reset)
+ */
+function clearAll() {
+  store.clear();
+}
+
 module.exports = {
   getProfile,
   saveProfile,
@@ -84,4 +127,8 @@ module.exports = {
   addPeer,
   getSettings,
   updateSettings,
+  getSharedFiles,
+  addSharedFile,
+  removeSharedFile,
+  clearAll,
 };

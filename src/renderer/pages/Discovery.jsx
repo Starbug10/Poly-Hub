@@ -7,9 +7,23 @@ function Discovery({ profile }) {
   const [peers, setPeers] = useState([]);
   const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: string }
   const [copied, setCopied] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     loadData();
+
+    // Listen for incoming peer additions (reverse-add)
+    window.electronAPI.onPeerAdded((peer) => {
+      setPeers((prev) => {
+        if (prev.some((p) => p.ip === peer.ip)) return prev;
+        return [...prev, peer];
+      });
+      setStatus({ type: 'success', message: `${peer.name} connected to you!` });
+    });
+
+    return () => {
+      window.electronAPI.removeAllListeners('peer:added');
+    };
   }, []);
 
   async function loadData() {
@@ -34,37 +48,51 @@ function Discovery({ profile }) {
     if (!inputLink.trim()) return;
 
     setStatus(null);
+    setConnecting(true);
 
     // Parse the incoming link
     const peerData = await window.electronAPI.parsePairingLink(inputLink.trim());
 
     if (!peerData) {
       setStatus({ type: 'error', message: 'Invalid pairing link' });
+      setConnecting(false);
       return;
     }
 
     // Check if it's not our own link
     if (peerData.ip === profile.ip) {
       setStatus({ type: 'error', message: "You can't pair with yourself" });
+      setConnecting(false);
       return;
     }
 
-    // Add the peer
+    // Add the peer locally
     const result = await window.electronAPI.addPeer({
       name: peerData.name,
       ip: peerData.ip,
     });
 
     if (result.success) {
-      setStatus({ type: 'success', message: `Connected to ${peerData.name}!` });
-      setInputLink('');
       setPeers(result.peers);
 
-      // TODO: Send our profile back to the peer over Tailscale connection
-      // This would be the "reverse add" functionality
+      // Send our profile to the peer (reverse-add)
+      const connectResult = await window.electronAPI.connectToPeer(peerData.ip);
+
+      if (connectResult.success) {
+        setStatus({ type: 'success', message: `Connected to ${peerData.name}!` });
+      } else {
+        setStatus({ 
+          type: 'warning', 
+          message: `Added ${peerData.name}, but couldn't notify them (they may be offline)` 
+        });
+      }
+
+      setInputLink('');
     } else {
       setStatus({ type: 'error', message: result.reason || 'Failed to add peer' });
     }
+
+    setConnecting(false);
   };
 
   return (
@@ -125,9 +153,9 @@ function Discovery({ profile }) {
             <button
               onClick={handleConnect}
               className="primary"
-              disabled={!inputLink.trim()}
+              disabled={!inputLink.trim() || connecting}
             >
-              CONNECT
+              {connecting ? 'CONNECTING...' : 'CONNECT'}
             </button>
           </div>
           {status && (

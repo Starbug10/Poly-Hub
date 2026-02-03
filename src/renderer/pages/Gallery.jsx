@@ -1,22 +1,129 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './Gallery.css';
 
 function Gallery() {
   const [peers, setPeers] = useState([]);
   const [files, setFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const dragCounterRef = useRef(0);
 
   useEffect(() => {
-    async function loadData() {
-      const peerList = await window.electronAPI.getPeers();
-      setPeers(peerList);
-    }
     loadData();
+
+    // Listen for incoming files
+    window.electronAPI.onFileReceived((file) => {
+      setFiles((prev) => {
+        if (prev.some((f) => f.id === file.id)) return prev;
+        return [...prev, file];
+      });
+    });
+
+    // Listen for file deletions
+    window.electronAPI.onFileDeleted((fileId) => {
+      setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    });
+
+    return () => {
+      window.electronAPI.removeAllListeners('file:received');
+      window.electronAPI.removeAllListeners('file:deleted');
+    };
   }, []);
+
+  async function loadData() {
+    const peerList = await window.electronAPI.getPeers();
+    setPeers(peerList);
+
+    const sharedFiles = await window.electronAPI.getSharedFiles();
+    setFiles(sharedFiles);
+  }
+
+  // Use counter to prevent flickering when dragging over child elements
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (dragCounterRef.current === 1) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length === 0) return;
+
+    await shareFiles(droppedFiles.map((file) => ({
+      path: file.path,
+      name: file.name,
+      size: file.size,
+      type: file.name.split('.').pop() || 'file',
+    })));
+  }, []);
+
+  const handleSelectFiles = async () => {
+    const selectedFiles = await window.electronAPI.selectFiles();
+    if (selectedFiles.length > 0) {
+      await shareFiles(selectedFiles);
+    }
+  };
+
+  const handleSelectFolder = async () => {
+    const folder = await window.electronAPI.selectFolder();
+    if (folder) {
+      await shareFiles([folder]);
+    }
+  };
+
+  const shareFiles = async (filesToShare) => {
+    setSharing(true);
+    try {
+      const sharedFiles = await window.electronAPI.shareFiles(filesToShare);
+      setFiles((prev) => [...prev, ...sharedFiles]);
+    } catch (err) {
+      console.error('Failed to share files:', err);
+    }
+    setSharing(false);
+  };
+
+  const handleDeleteFile = async (e, fileId) => {
+    e.stopPropagation();
+    try {
+      await window.electronAPI.deleteFile(fileId);
+      setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    } catch (err) {
+      console.error('Failed to delete file:', err);
+    }
+  };
 
   const hasPeers = peers.length > 0;
 
   return (
-    <div className="gallery">
+    <div 
+      className="gallery"
+      onDragEnter={hasPeers ? handleDragEnter : undefined}
+      onDragOver={hasPeers ? handleDragOver : undefined}
+      onDragLeave={hasPeers ? handleDragLeave : undefined}
+      onDrop={hasPeers ? handleDrop : undefined}
+    >
       <header className="gallery-header">
         <div className="gallery-header-left">
           <h1 className="gallery-title">GALLERY</h1>
@@ -74,10 +181,39 @@ function Gallery() {
           <div className="gallery-grid">
             {files.map((file) => (
               <div key={file.id} className="file-card">
-                <div className="file-icon">{getFileIcon(file.type)}</div>
+                <button 
+                  className="file-delete-btn" 
+                  onClick={(e) => handleDeleteFile(e, file.id)}
+                  title="Delete file"
+                >
+                  ×
+                </button>
+                <div className="file-thumbnail">
+                  {isImageFile(file.type) ? (
+                    <img 
+                      src={`file://${file.path}`} 
+                      alt={file.name} 
+                      className="file-thumbnail-img"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className="file-thumbnail-fallback" 
+                    style={{ display: isImageFile(file.type) ? 'none' : 'flex' }}
+                  >
+                    {getFileIcon(file.type)}
+                  </div>
+                </div>
                 <div className="file-info">
-                  <span className="file-name">{file.name}</span>
-                  <span className="file-meta">{formatFileSize(file.size)}</span>
+                  <span className="file-name" title={file.name}>{file.name}</span>
+                  <div className="file-meta">
+                    <span className="file-type">{(file.type || 'FILE').toUpperCase()}</span>
+                    <span className="file-meta-dot">•</span>
+                    <span className="file-size">{formatFileSize(file.size)}</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -85,10 +221,31 @@ function Gallery() {
         )}
       </div>
 
-      {hasPeers && (
-        <div className="gallery-drop-zone">
-          <div className="drop-zone-inner">
-            <span className="drop-zone-text">DROP FILES HERE TO SHARE</span>
+      {/* Drop overlay - covers entire gallery when dragging */}
+      {isDragging && hasPeers && (
+        <div className="gallery-drop-overlay">
+          <div className="drop-overlay-content">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="drop-overlay-icon">
+              <path d="M32 8V56M8 32H56" stroke="currentColor" strokeWidth="4" strokeLinecap="square" />
+            </svg>
+            <span className="drop-overlay-text">
+              {sharing ? 'SHARING...' : 'DROP TO SHARE'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom toolbar */}
+      {hasPeers && !isDragging && (
+        <div className="gallery-toolbar">
+          <span className="toolbar-hint">Drag files anywhere or</span>
+          <div className="toolbar-buttons">
+            <button onClick={handleSelectFiles} className="toolbar-btn">
+              SELECT FILES
+            </button>
+            <button onClick={handleSelectFolder} className="toolbar-btn">
+              SELECT FOLDER
+            </button>
           </div>
         </div>
       )}
@@ -96,9 +253,35 @@ function Gallery() {
   );
 }
 
+function isImageFile(type) {
+  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'];
+  return imageTypes.includes(type?.toLowerCase());
+}
+
 function getFileIcon(type) {
-  // Placeholder icons
-  return '▢';
+  const icons = {
+    folder: '📁',
+    zip: '📦',
+    rar: '📦',
+    '7z': '📦',
+    pdf: '📄',
+    doc: '📝',
+    docx: '📝',
+    txt: '📝',
+    jpg: '🖼',
+    jpeg: '🖼',
+    png: '🖼',
+    gif: '🖼',
+    mp4: '🎬',
+    mkv: '🎬',
+    avi: '🎬',
+    mp3: '🎵',
+    wav: '🎵',
+    flac: '🎵',
+    exe: '⚙',
+    msi: '⚙',
+  };
+  return icons[type?.toLowerCase()] || '▢';
 }
 
 function formatFileSize(bytes) {

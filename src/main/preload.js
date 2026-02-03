@@ -21,4 +21,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Pairing
   generatePairingLink: () => ipcRenderer.invoke('pairing:generate'),
   parsePairingLink: (link) => ipcRenderer.invoke('pairing:parse', link),
+  connectToPeer: (peerIP) => ipcRenderer.invoke('pairing:connect', peerIP),
+
+  // Files
+  selectFiles: () => ipcRenderer.invoke('dialog:selectFiles'),
+  selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  shareFiles: (files) => ipcRenderer.invoke('files:share', files),
+  getSharedFiles: () => ipcRenderer.invoke('files:get'),
+  deleteFile: (fileId) => ipcRenderer.invoke('files:delete', fileId),
+
+  // Settings
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
+
+  // Event listeners
+  onPeerAdded: (callback) => {
+    ipcRenderer.on('peer:added', (event, peer) => callback(peer));
+  },
+  onFileReceived: (callback) => {
+    ipcRenderer.on('file:received', (event, file) => callback(file));
+  },
+  onFileDeleted: (callback) => {
+    ipcRenderer.on('file:deleted', (event, fileId) => callback(fileId));
+  },
+  removeAllListeners: (channel) => {
+    ipcRenderer.removeAllListeners(channel);
+  },
 });

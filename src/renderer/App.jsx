@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import Onboarding from './pages/Onboarding';
 import Gallery from './pages/Gallery';
 import Discovery from './pages/Discovery';
+import Settings from './pages/Settings';
 import './styles/app.css';
 
 function App() {
@@ -21,6 +22,12 @@ function App() {
       // Check if profile exists
       const existingProfile = await window.electronAPI.getProfile();
       setProfile(existingProfile);
+
+      // Apply saved theme
+      const settings = await window.electronAPI.getSettings();
+      if (settings?.theme) {
+        document.documentElement.setAttribute('data-theme', settings.theme);
+      }
 
       setLoading(false);
     }
@@ -63,6 +70,7 @@ function App() {
                 <Route path="/" element={<Navigate to="/gallery" replace />} />
                 <Route path="/gallery" element={<Gallery />} />
                 <Route path="/discovery" element={<Discovery profile={profile} />} />
+                <Route path="/settings" element={<Settings />} />
               </Routes>
             </main>
           </>
