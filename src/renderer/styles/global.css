@@ -86,6 +86,28 @@
   --theme: light;
 }
 
+/* Rounded Corners Mode - Applied when class is added */
+.rounded-corners {
+  --border-radius: 8px;
+}
+
+.rounded-corners button,
+.rounded-corners input,
+.rounded-corners select,
+.rounded-corners .file-card,
+.rounded-corners .settings-card,
+.rounded-corners .gallery-filters,
+.rounded-corners .gallery-warning,
+.rounded-corners .peer-tooltip,
+.rounded-corners .file-card-preview,
+.rounded-corners .theme-btn,
+.rounded-corners .setting-btn,
+.rounded-corners .filter-select,
+.rounded-corners .sidebar,
+.rounded-corners .titlebar {
+  border-radius: var(--border-radius);
+}
+
 /* Reset */
 *, *::before, *::after {
   box-sizing: border-box;

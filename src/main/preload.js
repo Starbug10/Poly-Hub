@@ -54,6 +54,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFileProgress: (callback) => {
     ipcRenderer.on('file:progress', (event, progress) => callback(progress));
   },
+  onFileAutoAdded: (callback) => {
+    ipcRenderer.on('file:auto-added', (event, file) => callback(file));
+  },
   removeAllListeners: (channel) => {
     ipcRenderer.removeAllListeners(channel);
   },

@@ -10,6 +10,10 @@ function Gallery() {
   const [showPeerTooltip, setShowPeerTooltip] = useState(false);
   const [fileProgress, setFileProgress] = useState({}); // Track download progress
   const [deletingFiles, setDeletingFiles] = useState(new Set()); // Track files being deleted
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('date'); // date, name, size, type, sender
+  const [filterType, setFilterType] = useState('all'); // all, images, videos, documents, etc.
+  const [filterSender, setFilterSender] = useState('all'); // all or specific peer name
   const dragCounterRef = useRef(0);
 
   useEffect(() => {
@@ -58,11 +62,24 @@ function Gallery() {
       );
     });
 
+    // Listen for auto-added files from folder watcher
+    window.electronAPI.onFileAutoAdded((file) => {
+      console.log('[Gallery] File auto-added from folder:', file.name);
+      setFiles((prev) => {
+        // Check if file already exists
+        if (prev.some(f => f.id === file.id)) {
+          return prev;
+        }
+        return [file, ...prev];
+      });
+    });
+
     return () => {
       window.electronAPI.removeAllListeners('file:received');
       window.electronAPI.removeAllListeners('file:deleted');
       window.electronAPI.removeAllListeners('file:progress');
       window.electronAPI.removeAllListeners('peer:updated');
+      window.electronAPI.removeAllListeners('file:auto-added');
     };
   }, []);
 
@@ -196,8 +213,99 @@ function Gallery() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (!confirm('Are you sure you want to delete all files? This action cannot be undone.')) {
+      return;
+    }
+    console.log('[Gallery] Clearing all files:', files.length);
+    const fileIds = files.map(f => f.id);
+    for (const fileId of fileIds) {
+      setDeletingFiles((prev) => new Set(prev).add(fileId));
+      try {
+        await window.electronAPI.deleteFile(fileId);
+        console.log('[Gallery] Deleted file:', fileId);
+      } catch (err) {
+        console.error('[Gallery] ERROR: Failed to delete file:', err);
+      }
+    }
+    setFiles([]);
+    setDeletingFiles(new Set());
+  };
+
+  // Filter and sort files
+  const getFilteredAndSortedFiles = () => {
+    let filtered = [...files];
+
+    // Search filter
+    if (searchQuery) {
+      filtered = filtered.filter(file => 
+        file.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Type filter
+    if (filterType !== 'all') {
+      const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
+      const videoExts = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'];
+      const audioExts = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus'];
+      const docExts = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'];
+      const archiveExts = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'];
+
+      filtered = filtered.filter(file => {
+        const ext = file.type?.toLowerCase();
+        switch (filterType) {
+          case 'images': return imageExts.includes(ext);
+          case 'videos': return videoExts.includes(ext);
+          case 'audio': return audioExts.includes(ext);
+          case 'documents': return docExts.includes(ext);
+          case 'archives': return archiveExts.includes(ext);
+          default: return true;
+        }
+      });
+    }
+
+    // Sender filter
+    if (filterSender !== 'all') {
+      filtered = filtered.filter(file => file.from?.name === filterSender || file.sharedBy === filterSender);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'size':
+          return (b.size || 0) - (a.size || 0);
+        case 'type':
+          return (a.type || '').localeCompare(b.type || '');
+        case 'sender':
+          return (a.from?.name || a.sharedBy || '').localeCompare(b.from?.name || b.sharedBy || '');
+        case 'date':
+        default:
+          return (b.sharedAt || b.receivedAt || 0) - (a.sharedAt || a.receivedAt || 0);
+      }
+    });
+
+    return filtered;
+  };
+
+  // Get list of unique senders
+  const getUniqueSenders = () => {
+    const senders = new Set();
+    files.forEach(file => {
+      const sender = file.from?.name || file.sharedBy;
+      if (sender) senders.add(sender);
+    });
+    return Array.from(senders);
+  };
+
   const hasPeers = peers.length > 0;
   const hasSyncFolder = !!settings.syncFolder;
+  const filteredFiles = getFilteredAndSortedFiles();
+  const uniqueSenders = getUniqueSenders();
+
+  // Get files that are currently being received (have progress)
+  const receivingFiles = Object.entries(fileProgress).filter(([id, progress]) => progress.progress < 100);
 
   return (
     <div 
@@ -260,6 +368,75 @@ function Gallery() {
         </div>
       )}
 
+      {/* Filter bar */}
+      {hasPeers && files.length > 0 && (
+        <div className="gallery-filters">
+          <div className="filter-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search files..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="filter-search-input"
+            />
+            {searchQuery && (
+              <button className="filter-clear-btn" onClick={() => setSearchQuery('')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          <div className="filter-controls">
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
+              <option value="date">Sort: Date</option>
+              <option value="name">Sort: Name</option>
+              <option value="size">Sort: Size</option>
+              <option value="type">Sort: Type</option>
+              <option value="sender">Sort: Sender</option>
+            </select>
+
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
+              <option value="all">All Types</option>
+              <option value="images">Images</option>
+              <option value="videos">Videos</option>
+              <option value="audio">Audio</option>
+              <option value="documents">Documents</option>
+              <option value="archives">Archives</option>
+            </select>
+
+            {uniqueSenders.length > 1 && (
+              <select value={filterSender} onChange={(e) => setFilterSender(e.target.value)} className="filter-select">
+                <option value="all">All Senders</option>
+                {uniqueSenders.map((sender) => (
+                  <option key={sender} value={sender}>{sender}</option>
+                ))}
+              </select>
+            )}
+
+            <button className="filter-clear-all-btn" onClick={handleClearAll} title="Delete all files">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+              Clear All
+            </button>
+          </div>
+
+          {filteredFiles.length !== files.length && (
+            <div className="filter-results">
+              Showing {filteredFiles.length} of {files.length} files
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="gallery-content">
         {!hasPeers ? (
           <div className="gallery-empty">
@@ -283,7 +460,7 @@ function Gallery() {
               Go to the <span className="text-accent">Discover</span> page to connect with another user
             </p>
           </div>
-        ) : files.length === 0 ? (
+        ) : files.length === 0 && receivingFiles.length === 0 ? (
           <div className="gallery-empty">
             <div className="empty-icon">
               <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -300,7 +477,37 @@ function Gallery() {
           </div>
         ) : (
           <div className="gallery-grid">
-            {files.map((file) => (
+            {/* Show files currently being received */}
+            {receivingFiles.map(([fileId, progress]) => (
+              <div key={`receiving-${fileId}`} className="file-card file-card-receiving">
+                <div className="file-card-preview">
+                  <div className="file-icon receiving-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="file-card-info">
+                  <div className="file-card-name" title={progress.filename}>{progress.filename}</div>
+                  <div className="file-card-meta">
+                    <span>{formatFileSize(progress.total)}</span>
+                    <span>•</span>
+                    <span>Receiving...</span>
+                  </div>
+                </div>
+                <div className="file-card-overlay">
+                  <div className="file-progress-container">
+                    <div className="file-progress-bar" style={{ width: `${progress.progress}%` }}></div>
+                  </div>
+                  <span className="file-progress-text">{progress.progress}%</span>
+                </div>
+              </div>
+            ))}
+
+            {/* Show completed files */}
+            {filteredFiles.map((file) => (
               <FileCard
                 key={file.id}
                 file={file}

@@ -7,6 +7,7 @@ function Settings() {
     maxFileSize: '',
     notifications: true,
     theme: 'dark',
+    roundedCorners: false,
   });
   const [profile, setProfile] = useState(null);
   const [peers, setPeers] = useState([]);
@@ -22,18 +23,31 @@ function Settings() {
   useEffect(() => {
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', settings.theme);
-  }, [settings.theme]);
+    
+    // Apply rounded corners preference
+    if (settings.roundedCorners) {
+      document.documentElement.classList.add('rounded-corners');
+    } else {
+      document.documentElement.classList.remove('rounded-corners');
+    }
+  }, [settings.theme, settings.roundedCorners]);
 
   async function loadData() {
     const currentSettings = await window.electronAPI.getSettings();
     // Ensure maxFileSize is always a string for controlled input
     setSettings({
       ...currentSettings,
-      maxFileSize: currentSettings.maxFileSize != null ? String(currentSettings.maxFileSize) : ''
+      maxFileSize: currentSettings.maxFileSize != null ? String(currentSettings.maxFileSize) : '',
+      roundedCorners: currentSettings.roundedCorners || false,
     });
 
     // Apply saved theme on load
     document.documentElement.setAttribute('data-theme', currentSettings.theme || 'dark');
+    
+    // Apply rounded corners on load
+    if (currentSettings.roundedCorners) {
+      document.documentElement.classList.add('rounded-corners');
+    }
 
     const currentProfile = await window.electronAPI.getProfile();
     setProfile(currentProfile);
@@ -288,6 +302,22 @@ function Settings() {
                     LIGHT
                   </button>
                 </div>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span className="label-title">Rounded Corners</span>
+                <span className="label-description">Apply rounded corners to UI elements</span>
+              </div>
+              <div className="setting-value">
+                <label className="setting-toggle">
+                  <input
+                    type="checkbox"
+                    checked={settings.roundedCorners}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, roundedCorners: e.target.checked }))}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
               </div>
             </div>
           </div>

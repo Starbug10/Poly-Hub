@@ -8,6 +8,7 @@ const { PeerServer, sendPairRequest, announceFile, announceFileDelete, announceP
 
 let mainWindow;
 let peerServer;
+let folderWatcher = null;
 
 const isDev = !app.isPackaged;
 
@@ -147,6 +148,79 @@ async function startPeerServer() {
   } catch (err) {
     console.error('Failed to start peer server:', err);
   }
+  
+  // Setup folder watcher for auto-sync
+  setupFolderWatcher(syncFolder);
+}
+
+// Setup folder watcher to auto-add files
+function setupFolderWatcher(syncFolder) {
+  // Close existing watcher
+  if (folderWatcher) {
+    console.log('[MAIN] Closing existing folder watcher');
+    folderWatcher.close();
+    folderWatcher = null;
+  }
+  
+  if (!syncFolder || !fs.existsSync(syncFolder)) {
+    console.log('[MAIN] No valid sync folder, skipping folder watcher setup');
+    return;
+  }
+  
+  console.log(`[MAIN] Setting up folder watcher for: ${syncFolder}`);
+  
+  // Track existing files to avoid re-adding them
+  const existingFiles = new Set();
+  const sharedFiles = getSharedFiles();
+  sharedFiles.forEach(file => {
+    if (file.path) {
+      existingFiles.add(file.path);
+    }
+  });
+  
+  // Watch for new files
+  folderWatcher = fs.watch(syncFolder, { recursive: false }, async (eventType, filename) => {
+    if (eventType !== 'rename' || !filename) return;
+    
+    const filePath = path.join(syncFolder, filename);
+    
+    // Check if file exists (rename event fires for both create and delete)
+    if (!fs.existsSync(filePath)) return;
+    
+    // Check if it's actually a file
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) return;
+    
+    // Skip if already tracked
+    if (existingFiles.has(filePath)) return;
+    
+    // Skip temporary files
+    if (filename.startsWith('.') || filename.endsWith('.tmp')) return;
+    
+    console.log(`[MAIN] New file detected in sync folder: ${filename}`);
+    existingFiles.add(filePath);
+    
+    // Add to shared files
+    const fileExt = path.extname(filename).toLowerCase().slice(1);
+    const file = {
+      id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: filename,
+      path: filePath,
+      size: stats.size,
+      type: fileExt,
+      sharedAt: Date.now(),
+      sharedBy: 'You',
+    };
+    
+    addSharedFile(file);
+    
+    // Notify renderer
+    mainWindow.webContents.send('file:auto-added', file);
+    
+    console.log(`[MAIN] Auto-added file: ${filename}`);
+  });
+  
+  console.log('[MAIN] Folder watcher active');
 }
 
 app.whenReady().then(async () => {
@@ -494,8 +568,8 @@ ipcMain.handle('files:getThumbnail', async (event, filePath) => {
       // For non-image files, try to get the file icon from Windows
       const icon = await app.getFileIcon(filePath, { size: 'large' });
       if (!icon.isEmpty()) {
-        // Scale up the icon for better display
-        const resized = icon.resize({ width: 64, height: 64, quality: 'best' });
+        // Reduced icon size (25% smaller than before)
+        const resized = icon.resize({ width: 48, height: 48, quality: 'best' });
         return resized.toDataURL();
       }
     }
@@ -513,7 +587,15 @@ ipcMain.handle('settings:get', () => {
 });
 
 ipcMain.handle('settings:update', (event, settings) => {
-  return updateSettings(settings);
+  const oldSettings = getSettings();
+  const updated = updateSettings(settings);
+  
+  // If sync folder changed, restart folder watcher
+  if (oldSettings.syncFolder !== settings.syncFolder) {
+    setupFolderWatcher(settings.syncFolder);
+  }
+  
+  return updated;
 });
 
 // Get storage statistics
