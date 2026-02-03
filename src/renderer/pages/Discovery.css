@@ -1,0 +1,173 @@
+/* Discovery Styles */
+
+.discovery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 600px;
+}
+
+/* Header */
+.discovery-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-5);
+  border-bottom: var(--border);
+}
+
+.discovery-title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.discovery-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Content */
+.discovery-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Section */
+.discovery-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.section-number {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: 0.1em;
+}
+
+.section-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.section-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Link Box */
+.link-box {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.link-input {
+  flex: 1;
+  font-size: var(--font-size-sm);
+}
+
+.link-copy-btn {
+  min-width: 80px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.link-copy-btn.copied {
+  background-color: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-text);
+}
+
+/* Divider */
+.discovery-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.discovery-divider::before,
+.discovery-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-border);
+}
+
+.divider-text {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: 0.2em;
+}
+
+/* Status Message */
+.status-message {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  border-left: 3px solid;
+}
+
+.status-success {
+  border-color: var(--color-success);
+  color: var(--color-success);
+  background-color: rgba(74, 124, 78, 0.1);
+}
+
+.status-error {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background-color: rgba(168, 50, 50, 0.1);
+}
+
+/* Peers List */
+.peers-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.peer-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  background-color: var(--color-surface);
+}
+
+.peer-status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-success);
+  border-radius: 0; /* Brutalist square dot */
+}
+
+.peer-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.peer-name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.peer-ip {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+}

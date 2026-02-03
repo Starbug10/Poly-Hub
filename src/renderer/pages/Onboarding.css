@@ -1,0 +1,166 @@
+/* Onboarding Styles */
+
+.onboarding {
+  display: flex;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.onboarding-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-8);
+  max-width: 500px;
+}
+
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.onboarding-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.onboarding-step-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+  letter-spacing: 0.2em;
+  font-weight: 600;
+}
+
+.onboarding-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.onboarding-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Status Card */
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: var(--border);
+  background-color: var(--color-surface);
+}
+
+.status-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--font-size-lg);
+}
+
+.status-success .status-icon {
+  color: var(--color-success);
+}
+
+.status-error .status-icon {
+  color: var(--color-error);
+}
+
+.status-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.status-title {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.status-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Info Box */
+.onboarding-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-left: 3px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.onboarding-info ol {
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.onboarding-info li::marker {
+  color: var(--color-accent);
+}
+
+/* Form */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  color: var(--color-text-muted);
+}
+
+.form-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+}
+
+.input-readonly {
+  background-color: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Decoration */
+.onboarding-decoration {
+  position: absolute;
+  right: var(--space-8);
+  bottom: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  user-select: none;
+}
+
+.decoration-text {
+  font-size: 8rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 0.85;
+  color: var(--color-surface-elevated);
+  text-transform: uppercase;
+}
+
+.decoration-accent {
+  color: var(--color-accent);
+  opacity: 0.15;
+}
