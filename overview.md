@@ -124,9 +124,10 @@ Handles peer coordination and metadata:
 
 #### Port 47778 — File Transfer
 Dedicated binary file transfer port:
-- Streams actual file data
-- Uses length-prefixed protocol
-- Handles large files (tested up to GB scale)
+- **Streaming transfer**: Files are streamed in 64KB chunks to support large files (multi-GB)
+- Uses length-prefixed protocol for header, then raw file stream
+- Progress events emitted during transfer
+- Automatic timeout scaling based on file size (5 min base + 1 min per GB)
 
 ### Message Protocol
 

@@ -64,64 +64,130 @@ class PeerServer extends EventEmitter {
   }
 
   /**
-   * Handle incoming file transfer
+   * Handle incoming file transfer with streaming support
    */
   handleFileTransfer(socket) {
-    const chunks = [];
     let headerReceived = false;
     let fileInfo = null;
     let headerLength = 0;
+    let headerBuffer = Buffer.alloc(0);
+    let fileStream = null;
+    let bytesReceived = 0;
+    let lastProgressLog = 0;
+
+    // Increase socket timeout for large files
+    socket.setTimeout(600000); // 10 minutes
 
     socket.on('data', (chunk) => {
       if (!headerReceived) {
+        // Accumulate data until we have the full header
+        headerBuffer = Buffer.concat([headerBuffer, chunk]);
+        
         // First 4 bytes are header length
-        if (chunks.length === 0 && chunk.length >= 4) {
-          headerLength = chunk.readUInt32BE(0);
-          const headerData = chunk.slice(4, 4 + headerLength);
+        if (headerBuffer.length >= 4 && headerLength === 0) {
+          headerLength = headerBuffer.readUInt32BE(0);
+        }
+        
+        // Check if we have the full header
+        if (headerLength > 0 && headerBuffer.length >= 4 + headerLength) {
+          const headerData = headerBuffer.slice(4, 4 + headerLength);
           try {
             fileInfo = JSON.parse(headerData.toString());
             headerReceived = true;
-            // Rest of this chunk is file data
-            const fileData = chunk.slice(4 + headerLength);
-            if (fileData.length > 0) {
-              chunks.push(fileData);
+            console.log(`[FILE-SERVER] Receiving file: ${fileInfo.name} (${fileInfo.size} bytes) from ${fileInfo.from?.name || 'unknown'}`);
+            
+            // Create write stream for the file
+            if (this.syncFolder) {
+              const destPath = path.join(this.syncFolder, fileInfo.name);
+              fileStream = fs.createWriteStream(destPath);
+              fileInfo.localPath = destPath;
+              
+              // Write any remaining data from this chunk
+              const fileData = headerBuffer.slice(4 + headerLength);
+              if (fileData.length > 0) {
+                fileStream.write(fileData);
+                bytesReceived += fileData.length;
+              }
+              
+              // Emit progress event
+              this.emit('file-progress', {
+                fileId: fileInfo.id,
+                fileName: fileInfo.name,
+                bytesReceived,
+                totalBytes: fileInfo.size,
+                progress: Math.round((bytesReceived / fileInfo.size) * 100),
+              });
             }
           } catch (e) {
-            console.error('Failed to parse file header:', e);
+            console.error('[FILE-SERVER] ERROR: Failed to parse file header:', e);
             socket.end();
           }
         }
-      } else {
-        chunks.push(chunk);
+      } else if (fileStream) {
+        // Stream file data directly to disk
+        fileStream.write(chunk);
+        bytesReceived += chunk.length;
+        
+        // Log and emit progress every 10%
+        const progress = Math.round((bytesReceived / fileInfo.size) * 100);
+        if (progress >= lastProgressLog + 10 || bytesReceived === fileInfo.size) {
+          console.log(`[FILE-SERVER] Receiving ${fileInfo.name}: ${progress}% (${bytesReceived}/${fileInfo.size})`);
+          lastProgressLog = progress;
+          
+          this.emit('file-progress', {
+            fileId: fileInfo.id,
+            fileName: fileInfo.name,
+            bytesReceived,
+            totalBytes: fileInfo.size,
+            progress,
+          });
+        }
       }
     });
 
     socket.on('end', () => {
-      if (fileInfo && this.syncFolder) {
-        const fileBuffer = Buffer.concat(chunks);
-        const destPath = path.join(this.syncFolder, fileInfo.name);
+      if (fileStream) {
+        fileStream.end();
         
-        try {
-          fs.writeFileSync(destPath, fileBuffer);
-          console.log(`[FILE-SERVER] File received: ${fileInfo.name} (${fileInfo.size} bytes) from ${fileInfo.from.name}`);
-          console.log(`[FILE-SERVER] Saved to: ${destPath}`);
+        if (fileInfo && bytesReceived >= fileInfo.size * 0.99) { // Allow 1% tolerance
+          console.log(`[FILE-SERVER] File complete: ${fileInfo.name} (${bytesReceived} bytes)`);
+          console.log(`[FILE-SERVER] Saved to: ${fileInfo.localPath}`);
           
           // Emit event with local path
           this.emit('file-received', {
             file: {
               ...fileInfo,
-              path: destPath, // Use local path, not sender's path
+              path: fileInfo.localPath,
             },
             from: fileInfo.from,
           });
-        } catch (err) {
-          console.error(`[FILE-SERVER] ERROR: Failed to save file ${fileInfo.name}:`, err);
+        } else if (fileInfo) {
+          console.error(`[FILE-SERVER] ERROR: Incomplete file ${fileInfo.name} (${bytesReceived}/${fileInfo.size})`);
+          // Clean up incomplete file
+          try {
+            if (fs.existsSync(fileInfo.localPath)) {
+              fs.unlinkSync(fileInfo.localPath);
+            }
+          } catch (e) {
+            // Ignore cleanup errors
+          }
         }
       }
     });
 
+    socket.on('timeout', () => {
+      console.error('[FILE-SERVER] ERROR: Socket timeout during file transfer');
+      socket.destroy();
+      if (fileStream) {
+        fileStream.end();
+      }
+    });
+
     socket.on('error', (err) => {
-      console.error('File transfer error:', err.message);
+      console.error('[FILE-SERVER] ERROR: File transfer error:', err.message);
+      if (fileStream) {
+        fileStream.end();
+      }
     });
   }
 
@@ -279,38 +345,43 @@ function sendPairRequest(peerIP, profile) {
 }
 
 /**
- * Send a file to a peer (actual file transfer, not just announcement)
+ * Send a file to a peer (actual file transfer with streaming for large files)
  * @param {string} peerIP - The Tailscale IP of the peer
  * @param {object} file - File info {id, name, size, type, path}
  * @param {object} from - Our profile {name, ip}
+ * @param {function} onProgress - Optional callback for progress updates
  */
-function sendFile(peerIP, file, from) {
+function sendFile(peerIP, file, from, onProgress) {
   return new Promise((resolve) => {
-    // Read file data
-    let fileBuffer;
-    try {
-      fileBuffer = fs.readFileSync(file.path);
-    } catch (err) {
-      console.error('Failed to read file:', err);
-      resolve({ success: false, error: 'Failed to read file' });
+    // Check if file exists
+    if (!fs.existsSync(file.path)) {
+      console.error(`[FILE-TRANSFER] ERROR: File not found: ${file.path}`);
+      resolve({ success: false, error: 'File not found' });
       return;
     }
 
+    const stats = fs.statSync(file.path);
+    const fileSize = stats.size;
+    console.log(`[FILE-TRANSFER] Preparing to send ${file.name} (${fileSize} bytes) to ${peerIP}`);
+
     const socket = new net.Socket();
+    
+    // Longer timeout for large files (5 minutes + 1 min per GB)
+    const timeoutMs = 300000 + Math.ceil(fileSize / (1024 * 1024 * 1024)) * 60000;
     const timeout = setTimeout(() => {
+      console.error(`[FILE-TRANSFER] ERROR: Timeout sending ${file.name} to ${peerIP}`);
       socket.destroy();
       resolve({ success: false, error: 'Connection timeout' });
-    }, 60000); // 60 second timeout for file transfer
+    }, timeoutMs);
 
     socket.connect(FILE_TRANSFER_PORT, peerIP, () => {
-      clearTimeout(timeout);
-      console.log(`[FILE-TRANSFER] Sending file ${file.name} (${file.size} bytes) to ${peerIP}`);
+      console.log(`[FILE-TRANSFER] Connected to ${peerIP}, sending ${file.name}`);
 
       // Create header with file info
       const header = JSON.stringify({
         id: file.id,
         name: file.name,
-        size: file.size,
+        size: fileSize,
         type: file.type,
         sharedBy: file.sharedBy,
         sharedAt: file.sharedAt,
@@ -322,19 +393,55 @@ function sendFile(peerIP, file, from) {
       const lengthBuffer = Buffer.alloc(4);
       lengthBuffer.writeUInt32BE(headerBuffer.length, 0);
       
-      // Send: [header length (4 bytes)][header JSON][file data]
+      // Send header first
       socket.write(lengthBuffer);
       socket.write(headerBuffer);
-      socket.write(fileBuffer);
-      socket.end();
       
-      console.log(`[FILE-TRANSFER] Successfully sent ${file.name} to ${peerIP}`);
-      resolve({ success: true });
+      // Stream the file instead of loading entirely into memory
+      const fileStream = fs.createReadStream(file.path, { highWaterMark: 64 * 1024 }); // 64KB chunks
+      let bytesSent = 0;
+      
+      fileStream.on('data', (chunk) => {
+        bytesSent += chunk.length;
+        const progress = Math.round((bytesSent / fileSize) * 100);
+        if (onProgress) {
+          onProgress(progress, bytesSent, fileSize);
+        }
+        // Log progress every 10%
+        if (bytesSent === chunk.length || progress % 10 === 0) {
+          console.log(`[FILE-TRANSFER] Sending ${file.name}: ${progress}% (${bytesSent}/${fileSize})`);
+        }
+      });
+      
+      fileStream.on('error', (err) => {
+        clearTimeout(timeout);
+        console.error(`[FILE-TRANSFER] ERROR: Failed to read file ${file.name}:`, err);
+        socket.destroy();
+        resolve({ success: false, error: 'Failed to read file' });
+      });
+      
+      fileStream.on('end', () => {
+        console.log(`[FILE-TRANSFER] File stream complete for ${file.name}`);
+      });
+      
+      // Pipe file stream to socket
+      fileStream.pipe(socket, { end: true });
+      
+      socket.on('close', () => {
+        clearTimeout(timeout);
+        if (bytesSent === fileSize) {
+          console.log(`[FILE-TRANSFER] Successfully sent ${file.name} (${bytesSent} bytes) to ${peerIP}`);
+          resolve({ success: true });
+        } else {
+          console.error(`[FILE-TRANSFER] ERROR: Incomplete transfer of ${file.name} (${bytesSent}/${fileSize})`);
+          resolve({ success: false, error: 'Incomplete transfer' });
+        }
+      });
     });
 
     socket.on('error', (err) => {
       clearTimeout(timeout);
-      console.error(`Failed to send file to ${peerIP}:`, err.message);
+      console.error(`[FILE-TRANSFER] ERROR: Failed to send ${file.name} to ${peerIP}:`, err.message);
       resolve({ success: false, error: err.message });
     });
   });

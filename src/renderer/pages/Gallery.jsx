@@ -8,6 +8,8 @@ function Gallery() {
   const [sharing, setSharing] = useState(false);
   const [settings, setSettings] = useState({ syncFolder: null });
   const [showPeerTooltip, setShowPeerTooltip] = useState(false);
+  const [fileProgress, setFileProgress] = useState({}); // Track download progress
+  const [deletingFiles, setDeletingFiles] = useState(new Set()); // Track files being deleted
   const dragCounterRef = useRef(0);
 
   useEffect(() => {
@@ -15,19 +17,42 @@ function Gallery() {
 
     // Listen for incoming files
     window.electronAPI.onFileReceived((file) => {
+      console.log('[Gallery] File received from peer:', file.name, file.id);
       setFiles((prev) => {
         if (prev.some((f) => f.id === file.id)) return prev;
         return [...prev, file];
+      });
+      // Clear progress for this file
+      setFileProgress((prev) => {
+        const updated = { ...prev };
+        delete updated[file.id];
+        return updated;
       });
     });
 
     // Listen for file deletions
     window.electronAPI.onFileDeleted((fileId) => {
+      console.log('[Gallery] File deleted by peer:', fileId);
       setFiles((prev) => prev.filter((f) => f.id !== fileId));
+      setDeletingFiles((prev) => {
+        const updated = new Set(prev);
+        updated.delete(fileId);
+        return updated;
+      });
+    });
+
+    // Listen for file progress
+    window.electronAPI.onFileProgress((progress) => {
+      console.log('[Gallery] File progress:', progress.fileName, progress.progress + '%');
+      setFileProgress((prev) => ({
+        ...prev,
+        [progress.fileId]: progress,
+      }));
     });
 
     // Listen for peer updates
     window.electronAPI.onPeerUpdated((updatedPeer) => {
+      console.log('[Gallery] Peer updated:', updatedPeer.name);
       setPeers((prev) => 
         prev.map((p) => p.ip === updatedPeer.ip ? { ...p, name: updatedPeer.name } : p)
       );
@@ -36,6 +61,7 @@ function Gallery() {
     return () => {
       window.electronAPI.removeAllListeners('file:received');
       window.electronAPI.removeAllListeners('file:deleted');
+      window.electronAPI.removeAllListeners('file:progress');
       window.electronAPI.removeAllListeners('peer:updated');
     };
   }, []);
@@ -128,19 +154,29 @@ function Gallery() {
 
   const handleDeleteFile = async (e, fileId) => {
     e.stopPropagation();
+    console.log('[Gallery] Deleting file:', fileId);
+    setDeletingFiles((prev) => new Set(prev).add(fileId));
     try {
       await window.electronAPI.deleteFile(fileId);
+      console.log('[Gallery] File deleted successfully:', fileId);
       setFiles((prev) => prev.filter((f) => f.id !== fileId));
     } catch (err) {
-      console.error('Failed to delete file:', err);
+      console.error('[Gallery] ERROR: Failed to delete file:', err);
+    } finally {
+      setDeletingFiles((prev) => {
+        const updated = new Set(prev);
+        updated.delete(fileId);
+        return updated;
+      });
     }
   };
 
   const handleOpenFile = async (file) => {
+    console.log('[Gallery] Opening file:', file.name);
     try {
       await window.electronAPI.openFile(file.path);
     } catch (err) {
-      console.error('Failed to open file:', err);
+      console.error('[Gallery] ERROR: Failed to open file:', err);
     }
   };
 
@@ -270,6 +306,8 @@ function Gallery() {
                 file={file}
                 onDelete={handleDeleteFile}
                 onOpen={handleOpenFile}
+                isDeleting={deletingFiles.has(file.id)}
+                progress={fileProgress[file.id]}
               />
             ))}
           </div>
@@ -294,7 +332,7 @@ function Gallery() {
 }
 
 // FileCard component with thumbnail loading
-function FileCard({ file, onDelete, onOpen }) {
+function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
   const [thumbnail, setThumbnail] = useState(null);
   const [loadingThumbnail, setLoadingThumbnail] = useState(true);
 
@@ -328,15 +366,39 @@ function FileCard({ file, onDelete, onOpen }) {
     };
   }, [file.path]);
 
+  const isDownloading = progress && progress.progress < 100;
+
   return (
     <div 
-      className="file-card"
-      onClick={() => onOpen(file)}
+      className={`file-card ${isDeleting ? 'file-card-deleting' : ''} ${isDownloading ? 'file-card-downloading' : ''}`}
+      onClick={() => !isDeleting && !isDownloading && onOpen(file)}
     >
+      {/* Deleting overlay */}
+      {isDeleting && (
+        <div className="file-card-overlay">
+          <div className="file-loading-spinner"></div>
+          <span>Deleting...</span>
+        </div>
+      )}
+      
+      {/* Downloading progress */}
+      {isDownloading && (
+        <div className="file-card-overlay">
+          <div className="file-progress-container">
+            <div 
+              className="file-progress-bar" 
+              style={{ width: `${progress.progress}%` }}
+            ></div>
+          </div>
+          <span>{progress.progress}%</span>
+        </div>
+      )}
+      
       <button 
         className="file-delete-btn" 
         onClick={(e) => onDelete(e, file.id)}
         title="Delete file"
+        disabled={isDeleting}
       >
         ×
       </button>
@@ -350,7 +412,7 @@ function FileCard({ file, onDelete, onOpen }) {
           />
         ) : loadingThumbnail ? (
           <div className="file-thumbnail-loading">
-            <span>⏳</span>
+            <div className="file-loading-spinner small"></div>
           </div>
         ) : (
           <div className="file-thumbnail-fallback">

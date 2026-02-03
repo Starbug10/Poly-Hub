@@ -13,6 +13,7 @@ function Settings() {
   const [saved, setSaved] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
+  const [storageStats, setStorageStats] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -42,6 +43,19 @@ function Settings() {
 
     const currentPeers = await window.electronAPI.getPeers();
     setPeers(currentPeers);
+
+    // Load storage stats
+    const stats = await window.electronAPI.getStorageStats();
+    setStorageStats(stats);
+  }
+
+  // Helper function to format bytes
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
   const handleSave = async () => {
@@ -152,6 +166,68 @@ function Settings() {
         {/* Storage Section */}
         <section className="settings-section">
           <h2 className="section-title">STORAGE</h2>
+          
+          {/* Storage Status Bar */}
+          {storageStats && settings.syncFolder && (
+            <div className="storage-stats">
+              <div className="storage-info">
+                <span className="storage-used">{formatBytes(storageStats.folderSize)}</span>
+                <span className="storage-divider">/</span>
+                <span className="storage-total">
+                  {storageStats.maxSize 
+                    ? formatBytes(storageStats.maxSize) + ' limit'
+                    : formatBytes(storageStats.diskTotal) + ' disk'
+                  }
+                </span>
+                <span className="storage-free">
+                  ({formatBytes(storageStats.diskFree)} free)
+                </span>
+              </div>
+              
+              {/* Visual bar showing usage by file type */}
+              <div className="storage-bar-container">
+                <div className="storage-bar">
+                  {Object.entries(storageStats.filesByType).map(([type, data]) => {
+                    const percentage = storageStats.maxSize 
+                      ? (data.size / storageStats.maxSize) * 100
+                      : (data.size / storageStats.diskTotal) * 100;
+                    if (percentage < 0.5) return null;
+                    return (
+                      <div
+                        key={type}
+                        className="storage-bar-segment"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor: data.color,
+                        }}
+                        title={`${type}: ${formatBytes(data.size)} (${data.count} files)`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="storage-bar-bg" />
+              </div>
+              
+              {/* Legend */}
+              <div className="storage-legend">
+                {Object.entries(storageStats.filesByType).map(([type, data]) => {
+                  if (data.count === 0) return null;
+                  return (
+                    <div key={type} className="storage-legend-item">
+                      <span 
+                        className="storage-legend-color" 
+                        style={{ backgroundColor: data.color }}
+                      />
+                      <span className="storage-legend-label">
+                        {type} ({data.count})
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
           <div className="settings-card">
             <div className="setting-row">
               <div className="setting-label">

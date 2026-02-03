@@ -249,3 +249,96 @@
   font-size: var(--font-size-xs);
   letter-spacing: 0.1em;
 }
+
+/* Storage Stats */
+.storage-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: var(--border);
+}
+
+.storage-info {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.storage-used {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.storage-divider {
+  color: var(--color-text-dim);
+}
+
+.storage-total {
+  color: var(--color-text-muted);
+}
+
+.storage-free {
+  color: var(--color-text-dim);
+  font-size: var(--font-size-xs);
+}
+
+.storage-bar-container {
+  position: relative;
+  height: 12px;
+}
+
+.storage-bar {
+  position: relative;
+  display: flex;
+  height: 100%;
+  z-index: 1;
+}
+
+.storage-bar-bg {
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.storage-bar-segment {
+  height: 100%;
+  min-width: 2px;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.storage-bar-segment:hover {
+  opacity: 0.8;
+}
+
+.storage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.storage-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.storage-legend-color {
+  width: 10px;
+  height: 10px;
+}
+
+.storage-legend-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  text-transform: capitalize;
+}

@@ -93,9 +93,30 @@ async function startPeerServer() {
     }
   });
 
+  // Handle file transfer progress
+  peerServer.on('file-progress', (data) => {
+    console.log(`[MAIN] File progress: ${data.fileName} - ${data.progress}%`);
+    mainWindow.webContents.send('file:progress', data);
+  });
+
   // Handle incoming file deletion
   peerServer.on('file-delete', (data) => {
     console.log(`[MAIN] File deletion received: ${data.fileId}`);
+    
+    // Also delete from disk
+    const sharedFiles = getSharedFiles();
+    const fileToDelete = sharedFiles.find(f => f.id === data.fileId);
+    if (fileToDelete && fileToDelete.path) {
+      try {
+        if (fs.existsSync(fileToDelete.path)) {
+          fs.unlinkSync(fileToDelete.path);
+          console.log(`[MAIN] Deleted file from disk: ${fileToDelete.path}`);
+        }
+      } catch (err) {
+        console.error(`[MAIN] ERROR: Failed to delete file from disk: ${err.message}`);
+      }
+    }
+    
     removeSharedFile(data.fileId);
     mainWindow.webContents.send('file:deleted', data.fileId);
   });
@@ -397,15 +418,38 @@ ipcMain.handle('files:get', () => {
 
 // Delete a shared file
 ipcMain.handle('files:delete', async (event, fileId) => {
+  console.log(`[MAIN] Deleting file: ${fileId}`);
   const profile = getProfile();
   const peers = getPeers();
-
-  // Remove from local storage
+  const sharedFiles = getSharedFiles();
+  
+  // Find the file to get its path
+  const fileToDelete = sharedFiles.find(f => f.id === fileId);
+  
+  // Remove from local storage first
   const result = removeSharedFile(fileId);
+  
+  // Delete the actual file from disk
+  if (fileToDelete && fileToDelete.path) {
+    try {
+      if (fs.existsSync(fileToDelete.path)) {
+        fs.unlinkSync(fileToDelete.path);
+        console.log(`[MAIN] Deleted file from disk: ${fileToDelete.path}`);
+      }
+    } catch (err) {
+      console.error(`[MAIN] ERROR: Failed to delete file from disk: ${err.message}`);
+    }
+  }
 
   // Notify all peers about deletion
+  console.log(`[MAIN] Notifying ${peers.length} peer(s) about file deletion`);
   for (const peer of peers) {
-    await announceFileDelete(peer.ip, fileId, profile);
+    const sendResult = await announceFileDelete(peer.ip, fileId, profile);
+    if (sendResult.success) {
+      console.log(`[MAIN] Notified ${peer.name} about deletion`);
+    } else {
+      console.error(`[MAIN] Failed to notify ${peer.name}: ${sendResult.error}`);
+    }
   }
 
   return result;
@@ -432,8 +476,8 @@ ipcMain.handle('files:getThumbnail', async (event, filePath) => {
       const image = nativeImage.createFromPath(filePath);
       if (!image.isEmpty()) {
         const size = image.getSize();
-        // Resize to thumbnail size (max 200px)
-        const maxSize = 200;
+        // Resize to thumbnail size (max 400px for better quality)
+        const maxSize = 400;
         let width = size.width;
         let height = size.height;
         
@@ -443,14 +487,16 @@ ipcMain.handle('files:getThumbnail', async (event, filePath) => {
           height = Math.floor(height * ratio);
         }
         
-        const thumbnail = image.resize({ width, height, quality: 'good' });
+        const thumbnail = image.resize({ width, height, quality: 'best' });
         return thumbnail.toDataURL();
       }
     } else {
       // For non-image files, try to get the file icon from Windows
       const icon = await app.getFileIcon(filePath, { size: 'large' });
       if (!icon.isEmpty()) {
-        return icon.toDataURL();
+        // Scale up the icon for better display
+        const resized = icon.resize({ width: 64, height: 64, quality: 'best' });
+        return resized.toDataURL();
       }
     }
     
@@ -468,4 +514,109 @@ ipcMain.handle('settings:get', () => {
 
 ipcMain.handle('settings:update', (event, settings) => {
   return updateSettings(settings);
+});
+
+// Get storage statistics
+ipcMain.handle('settings:getStorageStats', async () => {
+  const settings = getSettings();
+  const syncFolder = settings.syncFolder;
+  
+  if (!syncFolder || !fs.existsSync(syncFolder)) {
+    return {
+      folderSize: 0,
+      diskTotal: 0,
+      diskFree: 0,
+      maxSize: settings.maxFileSize ? parseInt(settings.maxFileSize) * 1024 * 1024 * 1024 : null,
+      filesByType: {},
+    };
+  }
+  
+  // Get file breakdown by type
+  const filesByType = {
+    images: { size: 0, count: 0, color: '#4CAF50' },
+    videos: { size: 0, count: 0, color: '#2196F3' },
+    audio: { size: 0, count: 0, color: '#9C27B0' },
+    documents: { size: 0, count: 0, color: '#FF9800' },
+    archives: { size: 0, count: 0, color: '#795548' },
+    other: { size: 0, count: 0, color: '#607D8B' },
+  };
+  
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
+  const videoExts = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'];
+  const audioExts = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus'];
+  const docExts = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'];
+  const archiveExts = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'];
+  
+  let folderSize = 0;
+  
+  function scanFolder(dirPath) {
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
+        if (entry.isDirectory()) {
+          scanFolder(fullPath);
+        } else if (entry.isFile()) {
+          const stats = fs.statSync(fullPath);
+          const ext = path.extname(entry.name).slice(1).toLowerCase();
+          folderSize += stats.size;
+          
+          if (imageExts.includes(ext)) {
+            filesByType.images.size += stats.size;
+            filesByType.images.count++;
+          } else if (videoExts.includes(ext)) {
+            filesByType.videos.size += stats.size;
+            filesByType.videos.count++;
+          } else if (audioExts.includes(ext)) {
+            filesByType.audio.size += stats.size;
+            filesByType.audio.count++;
+          } else if (docExts.includes(ext)) {
+            filesByType.documents.size += stats.size;
+            filesByType.documents.count++;
+          } else if (archiveExts.includes(ext)) {
+            filesByType.archives.size += stats.size;
+            filesByType.archives.count++;
+          } else {
+            filesByType.other.size += stats.size;
+            filesByType.other.count++;
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`[MAIN] ERROR: Failed to scan folder ${dirPath}:`, e);
+    }
+  }
+  
+  scanFolder(syncFolder);
+  
+  // Get disk space info
+  let diskTotal = 0;
+  let diskFree = 0;
+  
+  try {
+    // Use Node.js to get disk info (Windows-specific)
+    const { execSync } = require('child_process');
+    const driveLetter = syncFolder.charAt(0).toUpperCase();
+    const output = execSync(`wmic logicaldisk where "DeviceID='${driveLetter}:'" get Size,FreeSpace /format:csv`, {
+      encoding: 'utf8',
+    });
+    const lines = output.trim().split('\n');
+    if (lines.length >= 2) {
+      const values = lines[1].split(',');
+      if (values.length >= 3) {
+        diskFree = parseInt(values[1]) || 0;
+        diskTotal = parseInt(values[2]) || 0;
+      }
+    }
+  } catch (e) {
+    console.error('[MAIN] ERROR: Failed to get disk info:', e);
+  }
+  
+  return {
+    folderSize,
+    diskTotal,
+    diskFree,
+    maxSize: settings.maxFileSize ? parseInt(settings.maxFileSize) * 1024 * 1024 * 1024 : null,
+    filesByType,
+  };
 });

@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
+  getStorageStats: () => ipcRenderer.invoke('settings:getStorageStats'),
 
   // Event listeners
   onPeerAdded: (callback) => {
@@ -49,6 +50,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onFileDeleted: (callback) => {
     ipcRenderer.on('file:deleted', (event, fileId) => callback(fileId));
+  },
+  onFileProgress: (callback) => {
+    ipcRenderer.on('file:progress', (event, progress) => callback(progress));
   },
   removeAllListeners: (channel) => {
     ipcRenderer.removeAllListeners(channel);
