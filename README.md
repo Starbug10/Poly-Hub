@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="assets/PolyHub.png" alt="PolyHub Banner" style="max-width: 100%; height: 320px; object-fit: contain;" />
+    <img src="assets/PolyHub2.png" alt="PolyHub Banner" style="max-width: 100%; height: 320px; object-fit: contain;" />
 </p>
 
 <p align="center">
