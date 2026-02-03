@@ -169,13 +169,7 @@
 .sidebar-profile-status .status-text {
   font-size: var(--font-size-xs);
   color: var(--color-text-dim);
-  letter-spacing: 0.1em
-
-.sidebar-profile-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-dim);
-  letter-spacing: 0.15em;
-  margin-bottom: var(--space-1);
+  letter-spacing: 0.1em;
 }
 
 .sidebar-profile-name {
@@ -187,12 +181,17 @@
 .sidebar-profile-ip {
   font-size: var(--font-size-xs);
   color: var(--color-accent);
- 
+  font-family: var(--font-mono);
+}
 
+/* Compact sidebar bottom section */
 .compact-sidebar .sidebar-bottom {
   display: flex;
   flex-direction: column;
-} font-family: var(--font-mono);
+}
+
+.compact-sidebar .sidebar-profile-divider {
+  display: none;
 }
 
 /* Compact profile icon */

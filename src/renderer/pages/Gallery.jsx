@@ -14,6 +14,8 @@ function Gallery() {
   const [sortBy, setSortBy] = useState('date'); // date, name, size, type, sender
   const [filterType, setFilterType] = useState('all'); // all, images, videos, documents, etc.
   const [filterSender, setFilterSender] = useState('all'); // all or specific peer name
+  const [tailscaleOffline, setTailscaleOffline] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // Store action to retry
   const dragCounterRef = useRef(0);
 
   useEffect(() => {
@@ -92,7 +94,37 @@ function Gallery() {
 
     const currentSettings = await window.electronAPI.getSettings();
     setSettings(currentSettings);
+    
+    // Check Tailscale status on load
+    const status = await window.electronAPI.getTailscaleStatus();
+    if (!status?.running) {
+      setTailscaleOffline(true);
+    }
   }
+
+  // Check Tailscale status before file operations
+  const checkTailscaleStatus = async () => {
+    const status = await window.electronAPI.getTailscaleStatus();
+    return status?.running === true;
+  };
+
+  const handleRetryTailscale = async () => {
+    const isOnline = await checkTailscaleStatus();
+    if (isOnline) {
+      setTailscaleOffline(false);
+      // Execute pending action if any
+      if (pendingAction) {
+        const action = pendingAction;
+        setPendingAction(null);
+        action();
+      }
+    }
+  };
+
+  const dismissTailscaleWarning = () => {
+    setTailscaleOffline(false);
+    setPendingAction(null);
+  };
 
   // Use counter to prevent flickering when dragging over child elements
   const handleDragEnter = useCallback((e) => {
@@ -128,6 +160,21 @@ function Gallery() {
     console.log('[Gallery] Items dropped:', droppedItems.length);
     if (droppedItems.length === 0) return;
 
+    // Check Tailscale status before proceeding
+    const isOnline = await checkTailscaleStatus();
+    if (!isOnline) {
+      // Store the action to retry later
+      setPendingAction(() => async () => {
+        await processDroppedItems(droppedItems);
+      });
+      setTailscaleOffline(true);
+      return;
+    }
+
+    await processDroppedItems(droppedItems);
+  }, []);
+
+  const processDroppedItems = async (droppedItems) => {
     // Separate folders from files
     const folders = [];
     const filesToShare = [];
@@ -168,9 +215,17 @@ function Gallery() {
     if (filesToShare.length > 0) {
       await shareFiles(filesToShare);
     }
-  }, []);
+  };
 
   const handleSelectFiles = async () => {
+    // Check Tailscale status before proceeding
+    const isOnline = await checkTailscaleStatus();
+    if (!isOnline) {
+      setPendingAction(() => handleSelectFiles);
+      setTailscaleOffline(true);
+      return;
+    }
+    
     console.log('[Gallery] Opening file selection dialog');
     const selectedFiles = await window.electronAPI.selectFiles();
     console.log('[Gallery] Files selected:', selectedFiles.length);
@@ -233,6 +288,14 @@ function Gallery() {
   };
 
   const handleSelectFolder = async () => {
+    // Check Tailscale status before proceeding
+    const isOnline = await checkTailscaleStatus();
+    if (!isOnline) {
+      setPendingAction(() => handleSelectFolder);
+      setTailscaleOffline(true);
+      return;
+    }
+    
     console.log('[Gallery] Opening folder selection dialog');
     const folder = await window.electronAPI.selectFolder();
     if (folder) {
@@ -366,6 +429,36 @@ function Gallery() {
       onDragLeave={hasPeers ? handleDragLeave : undefined}
       onDrop={hasPeers ? handleDrop : undefined}
     >
+      {/* Tailscale Offline Modal */}
+      {tailscaleOffline && (
+        <div className="tailscale-modal-overlay">
+          <div className="tailscale-modal">
+            <div className="tailscale-modal-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <h2 className="tailscale-modal-title">TAILSCALE OFFLINE</h2>
+            <p className="tailscale-modal-message">
+              Tailscale is not running. Files cannot be shared with peers until Tailscale is connected.
+            </p>
+            <p className="tailscale-modal-hint">
+              Please start Tailscale and ensure you're connected to your network.
+            </p>
+            <div className="tailscale-modal-actions">
+              <button onClick={handleRetryTailscale} className="primary">
+                RETRY CONNECTION
+              </button>
+              <button onClick={dismissTailscaleWarning} className="secondary">
+                DISMISS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="gallery-header">
         <div className="gallery-header-left">
           <h1 className="gallery-title">GALLERY</h1>

@@ -8,6 +8,87 @@
   position: relative;
 }
 
+/* Tailscale Offline Modal */
+.tailscale-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.tailscale-modal {
+  background-color: var(--color-surface);
+  border: var(--border);
+  padding: var(--space-8);
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rounded-corners .tailscale-modal {
+  border-radius: var(--border-radius-lg);
+}
+
+.tailscale-modal-icon {
+  color: var(--color-accent);
+}
+
+.tailscale-modal-icon svg {
+  stroke: var(--color-accent);
+}
+
+.tailscale-modal-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.tailscale-modal-message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.tailscale-modal-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+  margin: 0;
+}
+
+.tailscale-modal-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+
+.tailscale-modal-actions button {
+  min-width: 140px;
+}
+
+.tailscale-modal-actions .secondary {
+  background-color: transparent;
+  border: var(--border);
+  color: var(--color-text-muted);
+}
+
+.tailscale-modal-actions .secondary:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
 /* Header */
 .gallery-header {
   display: flex;
@@ -423,8 +504,8 @@
 }
 
 .file-delete-btn:hover {
-  background-color: #e53935;
-  border-color: #e53935;
+  background-color: #6b6b6b;
+  border-color: #6b6b6b;
   color: #fff;
 }
 

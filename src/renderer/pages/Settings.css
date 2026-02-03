@@ -415,3 +415,99 @@
   letter-spacing: 0.05em;
   text-transform: capitalize;
 }
+
+/* Peer Discovery Styles */
+.pairing-link-value {
+  flex: 1;
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pairing-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-bg);
+  border: var(--border);
+  color: var(--color-text);
+}
+
+.pairing-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.setting-btn.copied {
+  background-color: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-text);
+}
+
+.setting-btn.primary-btn {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.setting-btn.primary-btn:hover {
+  opacity: 0.9;
+}
+
+.setting-btn.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pairing-status {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  border-left: 3px solid;
+  margin-top: var(--space-2);
+}
+
+.pairing-success {
+  border-color: var(--color-success);
+  color: var(--color-success);
+  background-color: rgba(74, 124, 78, 0.1);
+}
+
+.pairing-error {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background-color: rgba(168, 50, 50, 0.1);
+}
+
+.pairing-warning {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background-color: rgba(255, 103, 0, 0.1);
+}
+
+/* Peer Row with Status Indicator */
+.peer-row {
+  gap: var(--space-3);
+}
+
+.peer-status-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.peer-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-text-dim);
+}
+
+.peer-status-dot.online {
+  background-color: var(--color-success);
+}
+
+.peer-status-dot.offline {
+  background-color: var(--color-error);
+}

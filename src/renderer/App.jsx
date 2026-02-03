@@ -4,7 +4,6 @@ import TitleBar from './components/TitleBar';
 import Sidebar from './components/Sidebar';
 import Onboarding from './pages/Onboarding';
 import Gallery from './pages/Gallery';
-import Discovery from './pages/Discovery';
 import Settings from './pages/Settings';
 import './styles/app.css';
 
@@ -89,8 +88,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/gallery" replace />} />
                 <Route path="/gallery" element={<Gallery />} />
-                <Route path="/discovery" element={<Discovery profile={profile} />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route path="/settings" element={<Settings profile={profile} />} />
               </Routes>
             </main>
           </>

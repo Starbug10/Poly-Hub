@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Settings.css';
 
-function Settings() {
+function Settings({ profile: initialProfile }) {
   const [settings, setSettings] = useState({
     syncFolder: null,
     maxFileSize: '',
@@ -11,15 +11,35 @@ function Settings() {
     accentColor: '#ff6700',
     compactSidebar: false,
   });
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(initialProfile);
   const [peers, setPeers] = useState([]);
   const [saved, setSaved] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [storageStats, setStorageStats] = useState(null);
+  
+  // Discovery state
+  const [pairingLink, setPairingLink] = useState('');
+  const [inputLink, setInputLink] = useState('');
+  const [pairingStatus, setPairingStatus] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     loadData();
+    
+    // Listen for incoming peer additions (reverse-add)
+    window.electronAPI.onPeerAdded((peer) => {
+      setPeers((prev) => {
+        if (prev.some((p) => p.ip === peer.ip)) return prev;
+        return [...prev, peer];
+      });
+      setPairingStatus({ type: 'success', message: `${peer.name} connected to you!` });
+    });
+
+    return () => {
+      window.electronAPI.removeAllListeners('peer:added');
+    };
   }, []);
 
   useEffect(() => {
@@ -98,6 +118,10 @@ function Settings() {
     // Load storage stats
     const stats = await window.electronAPI.getStorageStats();
     setStorageStats(stats);
+    
+    // Load pairing link
+    const link = await window.electronAPI.generatePairingLink();
+    setPairingLink(link);
   }
 
   // Helper function to format bytes
@@ -155,6 +179,67 @@ function Settings() {
         syncFolder: folder.path,
       }));
     }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(pairingLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleConnect = async () => {
+    if (!inputLink.trim()) return;
+
+    setPairingStatus(null);
+    setConnecting(true);
+
+    // Parse the incoming link
+    const peerData = await window.electronAPI.parsePairingLink(inputLink.trim());
+
+    if (!peerData) {
+      setPairingStatus({ type: 'error', message: 'Invalid pairing link' });
+      setConnecting(false);
+      return;
+    }
+
+    // Check if it's not our own link
+    if (peerData.ip === profile?.ip) {
+      setPairingStatus({ type: 'error', message: "You can't pair with yourself" });
+      setConnecting(false);
+      return;
+    }
+
+    // Add the peer locally
+    const result = await window.electronAPI.addPeer({
+      name: peerData.name,
+      ip: peerData.ip,
+    });
+
+    if (result.success) {
+      setPeers(result.peers);
+
+      // Send our profile to the peer (reverse-add)
+      const connectResult = await window.electronAPI.connectToPeer(peerData.ip);
+
+      if (connectResult.success) {
+        setPairingStatus({ type: 'success', message: `Connected to ${peerData.name}!` });
+      } else {
+        setPairingStatus({ 
+          type: 'warning', 
+          message: `Added ${peerData.name}, but couldn't notify them (they may be offline)` 
+        });
+      }
+
+      setInputLink('');
+    } else {
+      setPairingStatus({ type: 'error', message: result.reason || 'Failed to add peer' });
+    }
+
+    setConnecting(false);
   };
 
   return (
@@ -423,17 +508,79 @@ function Settings() {
           </div>
         </section>
 
+        {/* Peer Discovery Section */}
+        <section className="settings-section">
+          <h2 className="section-title">PEER DISCOVERY</h2>
+          <div className="settings-card">
+            {/* Share Your Link */}
+            <div className="setting-row">
+              <div className="setting-label">
+                <span className="label-title">Your Pairing Link</span>
+                <span className="label-description">Share this link with others to connect</span>
+              </div>
+              <div className="setting-value pairing-link-value">
+                <input
+                  type="text"
+                  value={pairingLink}
+                  readOnly
+                  className="pairing-input"
+                />
+                <button
+                  onClick={handleCopyLink}
+                  className={`setting-btn ${copied ? 'copied' : ''}`}
+                >
+                  {copied ? 'COPIED!' : 'COPY'}
+                </button>
+              </div>
+            </div>
+
+            {/* Paste Link */}
+            <div className="setting-row">
+              <div className="setting-label">
+                <span className="label-title">Connect to Peer</span>
+                <span className="label-description">Paste a link received from another user</span>
+              </div>
+              <div className="setting-value pairing-link-value">
+                <input
+                  type="text"
+                  value={inputLink}
+                  onChange={(e) => setInputLink(e.target.value)}
+                  placeholder="polyhub://pair/..."
+                  className="pairing-input"
+                />
+                <button
+                  onClick={handleConnect}
+                  className="setting-btn primary-btn"
+                  disabled={!inputLink.trim() || connecting}
+                >
+                  {connecting ? 'CONNECTING...' : 'CONNECT'}
+                </button>
+              </div>
+            </div>
+
+            {/* Pairing Status */}
+            {pairingStatus && (
+              <div className={`pairing-status pairing-${pairingStatus.type}`}>
+                {pairingStatus.message}
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* Connected Peers Section */}
         <section className="settings-section">
           <h2 className="section-title">CONNECTED PEERS ({peers.length})</h2>
           <div className="settings-card">
             {peers.length === 0 ? (
               <div className="setting-row">
-                <span className="value-text text-muted">No peers connected</span>
+                <span className="value-text text-muted">No peers connected. Use the pairing link above to connect!</span>
               </div>
             ) : (
               peers.map((peer) => (
-                <div key={peer.ip} className="setting-row">
+                <div key={peer.ip} className="setting-row peer-row">
+                  <div className="peer-status-indicator">
+                    <div className="peer-status-dot online" />
+                  </div>
                   <div className="setting-label">
                     <span className="label-title">{peer.name}</span>
                     <span className="label-description">{peer.ip}</span>
