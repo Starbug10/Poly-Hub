@@ -11,6 +11,7 @@ function Settings({ profile: initialProfile }) {
     roundedCorners: false,
     accentColor: '#ff6700',
     compactSidebar: false,
+    overlayShortcut: 'Alt+D',
   });
   const [profile, setProfile] = useState(initialProfile);
   const [peers, setPeers] = useState([]);
@@ -116,6 +117,7 @@ function Settings({ profile: initialProfile }) {
       roundedCorners: currentSettings.roundedCorners || false,
       accentColor: currentSettings.accentColor || '#ff6700',
       compactSidebar: currentSettings.compactSidebar || false,
+      overlayShortcut: currentSettings.overlayShortcut || 'Alt+D',
     });
 
     // Apply saved theme on load
@@ -560,6 +562,29 @@ function Settings({ profile: initialProfile }) {
                   />
                   <span className="toggle-slider"></span>
                 </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Drop Section */}
+        <section className="settings-section">
+          <h2 className="section-title">QUICK DROP</h2>
+          <div className="settings-card">
+            <div className="setting-row">
+              <div className="setting-label">
+                <span className="label-title">Overlay Shortcut</span>
+                <span className="label-description">Global keyboard shortcut to show drop zone (requires app restart)</span>
+              </div>
+              <div className="setting-value">
+                <input
+                  type="text"
+                  value={settings.overlayShortcut || 'Alt+D'}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, overlayShortcut: e.target.value }))}
+                  className="setting-input"
+                  placeholder="Alt+D"
+                  style={{ width: '120px', textAlign: 'left' }}
+                />
               </div>
             </div>
           </div>

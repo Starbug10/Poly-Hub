@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage, globalShortcut, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -8,6 +8,7 @@ const { getProfile, saveProfile, updateProfile, getPeers, addPeer, updatePeer, g
 const { PeerServer, sendPairRequest, announceFile, announceFileDelete, announceProfileUpdate } = require('./peerServer');
 
 let mainWindow;
+let overlayWindow = null;
 let peerServer;
 let folderWatcher = null;
 let receivingFiles = new Set(); // Track files currently being received to prevent duplicates
@@ -22,6 +23,7 @@ function createWindow() {
     minHeight: 600,
     frame: false,
     backgroundColor: '#1a1a1a',
+    icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -34,6 +36,62 @@ function createWindow() {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+}
+
+// Create overlay window for quick file drop
+function createOverlayWindow() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.show();
+    overlayWindow.focus();
+    return;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  // Calculate overlay dimensions (60% width, 15% height)
+  const overlayWidth = Math.floor(width * 0.6);
+  const overlayHeight = Math.floor(height * 0.15);
+  const overlayX = Math.floor((width - overlayWidth) / 2);
+  const overlayY = 0; // Anchored to top
+
+  overlayWindow = new BrowserWindow({
+    width: overlayWidth,
+    height: overlayHeight,
+    x: overlayX,
+    y: overlayY,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    icon: path.join(__dirname, '../../assets/icon.png'),
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  overlayWindow.loadFile(path.join(__dirname, 'overlay.html'));
+
+  overlayWindow.on('closed', () => {
+    overlayWindow = null;
+  });
+
+  console.log('[MAIN] Overlay window created');
+}
+
+// Toggle overlay window
+function toggleOverlay() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.close();
+    overlayWindow = null;
+  } else {
+    createOverlayWindow();
   }
 }
 
@@ -322,6 +380,26 @@ app.whenReady().then(async () => {
 
   await startPeerServer();
   console.log('[MAIN] PolyHub ready');
+
+  // Register global shortcut for overlay (Alt+D by default)
+  const settings = getSettings();
+  const shortcut = settings.overlayShortcut || 'Alt+D';
+
+  const registered = globalShortcut.register(shortcut, () => {
+    console.log(`[MAIN] Global shortcut ${shortcut} triggered`);
+    toggleOverlay();
+  });
+
+  if (registered) {
+    console.log(`[MAIN] Global shortcut registered: ${shortcut}`);
+  } else {
+    console.error(`[MAIN] Failed to register global shortcut: ${shortcut}`);
+  }
+});
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts
+  globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', () => {
@@ -348,6 +426,63 @@ ipcMain.handle('window:maximize', () => {
   }
 });
 ipcMain.handle('window:close', () => mainWindow.close());
+
+// Overlay window controls
+ipcMain.on('overlay:close', () => {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.close();
+    overlayWindow = null;
+  }
+});
+
+ipcMain.on('overlay:files-dropped', async (event, filePaths) => {
+  console.log('[MAIN] Files dropped on overlay:', filePaths);
+
+  // Close overlay
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.close();
+    overlayWindow = null;
+  }
+
+  // Process dropped files
+  const files = [];
+  for (const filePath of filePaths) {
+    try {
+      const stats = fs.statSync(filePath);
+      if (stats.isFile()) {
+        files.push({
+          path: filePath,
+          name: path.basename(filePath),
+          size: stats.size,
+          type: path.extname(filePath).slice(1) || 'file',
+        });
+      }
+    } catch (err) {
+      console.error(`[MAIN] Error processing file ${filePath}:`, err);
+    }
+  }
+
+  if (files.length > 0) {
+    // Share files using existing share logic
+    const result = await shareFilesInternal(files);
+    console.log(`[MAIN] Shared ${result.length} file(s) from overlay`);
+
+    // Show notification
+    const settings = getSettings();
+    if (settings.notifications) {
+      const { Notification } = require('electron');
+      new Notification({
+        title: 'Files Shared',
+        body: `${result.length} file(s) shared successfully`,
+      }).show();
+    }
+
+    // Notify main window to update gallery
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('files:shared', result);
+    }
+  }
+});
 
 // App info
 ipcMain.handle('app:version', () => {
@@ -611,8 +746,8 @@ function getFolderSize(dirPath) {
   return size;
 }
 
-// Share files with peers
-ipcMain.handle('files:share', async (event, files) => {
+// Helper function to share files (used by both IPC handler and overlay)
+async function shareFilesInternal(files) {
   console.log(`[MAIN] Sharing ${files.length} file(s)`);
   const profile = getProfile();
   const peers = getPeers();
@@ -664,6 +799,11 @@ ipcMain.handle('files:share', async (event, files) => {
 
   console.log(`[MAIN] Successfully shared ${results.length} file(s)`);
   return results;
+}
+
+// Share files with peers
+ipcMain.handle('files:share', async (event, files) => {
+  return await shareFilesInternal(files);
 });
 
 // Share a folder with all files preserving structure

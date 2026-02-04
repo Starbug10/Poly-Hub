@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Generate Icon</title>
+</head>
+
+<body>
+    <canvas id="canvas" width="256" height="256"></canvas>
+    <br>
+    <button onclick="downloadIcon()">Download Icon</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Background
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, 256, 256);
+
+        // Orange "4"
+        ctx.fillStyle = '#ff6700';
+
+        // Vertical line of 4
+        ctx.fillRect(140, 60, 40, 136);
+
+        // Top vertical part
+        ctx.fillRect(76, 60, 40, 80);
+
+        // Horizontal bar
+        ctx.fillRect(76, 120, 104, 40);
+
+        function downloadIcon() {
+            canvas.toBlob(function (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'icon.png';
+                a.click();
+            });
+        }
+    </script>
+</body>
+
+</html>

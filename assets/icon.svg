@@ -1,0 +1,16 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="256" height="256" fill="#1a1a1a"/>
+  
+  <!-- Orange "4" -->
+  <g fill="#ff6700">
+    <!-- Vertical line of 4 -->
+    <rect x="140" y="60" width="40" height="136"/>
+    
+    <!-- Top vertical part -->
+    <rect x="76" y="60" width="40" height="80"/>
+    
+    <!-- Horizontal bar -->
+    <rect x="76" y="120" width="104" height="40"/>
+  </g>
+</svg>

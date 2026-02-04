@@ -15,6 +15,7 @@ const store = new Store({
       roundedCorners: false,
       accentColor: '#ff6700', // Safety Orange (default)
       compactSidebar: false, // Icon-only sidebar mode
+      overlayShortcut: 'Alt+D', // Global shortcut for overlay window
       _migrated: false, // Track if user has been migrated to 5GB defaults
     },
   },
