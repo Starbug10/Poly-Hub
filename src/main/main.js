@@ -6,6 +6,7 @@ const { pathToFileURL } = require('url');
 const { getTailscaleStatus, getTailscaleIP } = require('./tailscale');
 const { getProfile, saveProfile, updateProfile, getPeers, addPeer, updatePeer, getSettings, updateSettings, addSharedFile, getSharedFiles, removeSharedFile } = require('./store');
 const { PeerServer, sendPairRequest, announceFile, announceFileDelete, announceProfileUpdate } = require('./peerServer');
+const { setupAutoUpdater } = require('./autoUpdater');
 
 let mainWindow;
 let overlayWindow = null;
@@ -509,6 +510,12 @@ app.whenReady().then(async () => {
 
   await startPeerServer();
   console.log('[MAIN] PolyHub ready');
+
+  // Setup auto-updater (only in production)
+  if (!isDev) {
+    setupAutoUpdater(mainWindow);
+    console.log('[MAIN] Auto-updater initialized');
+  }
 
   // Register global shortcut for overlay (Alt+D by default)
   const settings = getSettings();

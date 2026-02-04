@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.7.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
@@ -42,6 +43,11 @@
       "package.json",
       "version.json"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "Starbug10",
+      "repo": "Poly-Hub"
+    },
     "win": {
       "target": [
         {
@@ -57,7 +63,8 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "publisherName": "Poly-Hub"
     },
     "nsis": {
       "oneClick": false,
