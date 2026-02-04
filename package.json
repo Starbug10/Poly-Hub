@@ -18,6 +18,8 @@
     "electron": "^28.1.0",
     "electron-builder": "^24.9.1",
     "electron-icon-builder": "^2.0.1",
+    "png-to-ico": "^3.0.1",
+    "to-ico": "^1.1.5",
     "vite": "^5.0.10",
     "wait-on": "^7.2.0"
   },
@@ -44,11 +46,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico"
