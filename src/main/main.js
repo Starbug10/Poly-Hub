@@ -699,6 +699,34 @@ ipcMain.handle('app:version', () => {
   }
 });
 
+// Check for updates manually
+ipcMain.handle('app:checkForUpdates', async () => {
+  if (isDev) {
+    return { available: false, message: 'Updates not available in dev mode' };
+  }
+
+  try {
+    const { autoUpdater } = require('electron-updater');
+    const result = await autoUpdater.checkForUpdates();
+
+    if (result && result.updateInfo) {
+      const currentVersion = app.getVersion();
+      const latestVersion = result.updateInfo.version;
+
+      console.log(`[MAIN] Current: ${currentVersion}, Latest: ${latestVersion}`);
+
+      if (latestVersion !== currentVersion) {
+        return { available: true, version: latestVersion };
+      }
+    }
+
+    return { available: false };
+  } catch (err) {
+    console.error('[MAIN] Error checking for updates:', err);
+    return { available: false, error: err.message };
+  }
+});
+
 // Open external URL in default browser
 ipcMain.handle('app:openExternal', async (event, url) => {
   try {

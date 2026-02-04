@@ -124,6 +124,7 @@ src/
 │   ├── store.js       # Persistent storage
 │   ├── tailscale.js   # Tailscale integration
 │   ├── preload.js     # IPC bridge
+│   ├── autoUpdater.js # Auto-update from GitHub
 │   ├── overlay.html   # Global drop overlay
 │   └── notification-overlay.html  # File notifications
 └── renderer/          # React UI
@@ -137,6 +138,44 @@ src/
 - `npm run dev` — Start dev server + Electron
 - `npm run build` — Build for production
 - `npx electron-builder --win --x64` — Build Windows installer
+
+### Releasing a New Version
+
+**1. Update version numbers:**
+```bash
+# Update version.json
+{
+  "version": "4.0.2",
+  "buildDate": "2026-02-XX",
+  "name": "Poly-Hub"
+}
+
+# Update package.json
+"version": "4.0.2"
+```
+
+**2. Commit and tag:**
+```bash
+git add .
+git commit -m "Version 4.0.2 - Description of changes"
+git tag v4.0.2
+git push origin main
+git push origin v4.0.2
+```
+
+**3. GitHub Actions automatically:**
+- Builds Windows installer (NSIS)
+- Builds portable EXE
+- Creates GitHub release
+- Uploads installers to release
+
+**4. Auto-update triggers:**
+- Users with older versions get update prompt on next launch
+- Downloads and installs automatically
+- App restarts with new version
+- All settings/files preserved
+
+**Note:** Auto-updater checks GitHub releases every 6 hours and on startup.
 
 ### Installation & Updates
 - NSIS installer automatically replaces old versions

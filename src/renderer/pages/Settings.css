@@ -638,3 +638,35 @@
   color: var(--color-text-dim);
   font-family: var(--font-mono);
 }
+
+.check-update-btn {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  border: 2px solid var(--color-accent);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.check-update-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.check-update-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.update-status {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}

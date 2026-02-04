@@ -21,6 +21,8 @@ function Settings({ profile: initialProfile }) {
   const [newName, setNewName] = useState('');
   const [storageStats, setStorageStats] = useState(null);
   const [appVersion, setAppVersion] = useState(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState(null);
 
   // Discovery state
   const [pairingLink, setPairingLink] = useState('');
@@ -210,6 +212,26 @@ function Settings({ profile: initialProfile }) {
     setSettings(newSettings);
     document.documentElement.setAttribute('data-theme', theme);
     await window.electronAPI.updateSettings(newSettings);
+  };
+
+  const handleCheckForUpdates = async () => {
+    setCheckingUpdate(true);
+    setUpdateStatus('Checking for updates...');
+
+    try {
+      const result = await window.electronAPI.checkForUpdates();
+      if (result.available) {
+        setUpdateStatus(`Update available: v${result.version}`);
+      } else {
+        setUpdateStatus('You are on the latest version');
+        setTimeout(() => setUpdateStatus(null), 3000);
+      }
+    } catch (err) {
+      setUpdateStatus('Failed to check for updates');
+      setTimeout(() => setUpdateStatus(null), 3000);
+    } finally {
+      setCheckingUpdate(false);
+    }
   };
 
   const handleSelectSyncFolder = async () => {
@@ -728,6 +750,16 @@ function Settings({ profile: initialProfile }) {
             </button>
             {appVersion.buildDate && (
               <span className="version-date">Build: {appVersion.buildDate}</span>
+            )}
+            <button
+              onClick={handleCheckForUpdates}
+              disabled={checkingUpdate}
+              className="check-update-btn"
+            >
+              {checkingUpdate ? 'Checking...' : 'Check for Updates'}
+            </button>
+            {updateStatus && (
+              <span className="update-status">{updateStatus}</span>
             )}
           </div>
         )}
