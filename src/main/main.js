@@ -25,6 +25,7 @@ function createWindow() {
     frame: false,
     backgroundColor: '#1a1a1a',
     icon: path.join(__dirname, '../../assets/icon.png'),
+    show: false, // Don't show immediately
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -35,9 +36,20 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
+    mainWindow.show(); // Show in dev mode
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // Check if app was started with --hidden flag or on startup
+    if (!process.argv.includes('--hidden')) {
+      mainWindow.show();
+    }
   }
+
+  mainWindow.once('ready-to-show', () => {
+    if (!process.argv.includes('--hidden') || isDev) {
+      mainWindow.show();
+    }
+  });
 }
 
 // Create overlay window for quick file drop
@@ -476,6 +488,15 @@ function setupFolderWatcher(syncFolder) {
 app.whenReady().then(async () => {
   console.log('[MAIN] PolyHub starting up...');
 
+  // Set app to launch on startup
+  if (!isDev) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      openAsHidden: true,
+      args: ['--hidden']
+    });
+  }
+
   // Register custom protocol for loading local file thumbnails
   protocol.registerFileProtocol('polyhub-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('polyhub-file://', ''));
@@ -550,12 +571,6 @@ ipcMain.on('overlay:close', () => {
 ipcMain.on('overlay:files-dropped', async (event, filePaths) => {
   console.log('[MAIN] Files dropped on overlay:', filePaths);
 
-  // Close overlay
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.close();
-    overlayWindow = null;
-  }
-
   // Process dropped files
   const files = [];
   for (const filePath of filePaths) {
@@ -594,6 +609,14 @@ ipcMain.on('overlay:files-dropped', async (event, filePaths) => {
       mainWindow.webContents.send('files:shared', result);
     }
   }
+
+  // Auto-hide overlay after 1 second
+  setTimeout(() => {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.close();
+      overlayWindow = null;
+    }
+  }, 1000);
 });
 
 // Notification window handlers

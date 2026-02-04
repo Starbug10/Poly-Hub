@@ -21,6 +21,35 @@
             justify-content: center;
             height: 100vh;
             overflow: hidden;
+            animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-100%);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        body.closing {
+            animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-100%);
+            }
         }
 
         .drop-zone {
@@ -32,17 +61,23 @@
             align-items: center;
             justify-content: center;
             gap: 12px;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .drop-zone.drag-over {
             background: rgba(255, 103, 0, 0.1);
             border-color: #ff8c3a;
+            transform: scale(0.98);
         }
 
         .drop-icon {
             font-size: 48px;
             color: #ff6700;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .drop-zone.drag-over .drop-icon {
+            transform: translateY(5px);
         }
 
         .drop-text {
@@ -51,12 +86,22 @@
             letter-spacing: 0.05em;
             text-transform: uppercase;
             color: #ff6700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .drop-zone.drag-over .drop-text {
+            color: #ff8c3a;
         }
 
         .drop-hint {
             font-size: 12px;
             color: #888;
             letter-spacing: 0.05em;
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .drop-zone.drag-over .drop-hint {
+            opacity: 0.5;
         }
     </style>
 </head>

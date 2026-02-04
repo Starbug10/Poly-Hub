@@ -1,6 +1,6 @@
 {
   "name": "poly-hub",
-  "version": "0.1.0",
+  "version": "4.0.1",
   "description": "P2P file sharing between trusted users over Tailscale",
   "main": "src/main/main.js",
   "scripts": {
@@ -36,11 +36,36 @@
     },
     "files": [
       "src/**/*",
-      "package.json"
+      "assets/**/*",
+      "package.json",
+      "version.json"
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Poly-Hub",
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "perMachine": false,
+      "runAfterFinish": true
     }
   }
 }
