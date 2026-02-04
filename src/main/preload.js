@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
 
+  // App info
+  getVersion: () => ipcRenderer.invoke('app:version'),
+
   // Tailscale
   getTailscaleStatus: () => ipcRenderer.invoke('tailscale:status'),
   getTailscaleIP: () => ipcRenderer.invoke('tailscale:ip'),
@@ -18,6 +21,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Peers
   getPeers: () => ipcRenderer.invoke('peers:get'),
   addPeer: (peer) => ipcRenderer.invoke('peers:add', peer),
+  checkPeerStatus: (peerIP) => ipcRenderer.invoke('peers:checkStatus', peerIP),
+  checkAllPeersStatus: () => ipcRenderer.invoke('peers:checkAllStatus'),
 
   // Pairing
   generatePairingLink: () => ipcRenderer.invoke('pairing:generate'),
@@ -54,6 +59,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onFileProgress: (callback) => {
     ipcRenderer.on('file:progress', (event, progress) => callback(progress));
+  },
+  onFileBlocked: (callback) => {
+    ipcRenderer.on('file:blocked', (event, data) => callback(data));
   },
   onFileAutoAdded: (callback) => {
     ipcRenderer.on('file:auto-added', (event, file) => callback(file));

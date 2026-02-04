@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './Gallery.css';
 
-function Gallery() {
+function Gallery({ tailscaleOffline: propTailscaleOffline }) {
   const [peers, setPeers] = useState([]);
+  const [peerStatus, setPeerStatus] = useState({}); // Track peer online/offline status
   const [files, setFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -14,9 +15,17 @@ function Gallery() {
   const [sortBy, setSortBy] = useState('date'); // date, name, size, type, sender
   const [filterType, setFilterType] = useState('all'); // all, images, videos, documents, etc.
   const [filterSender, setFilterSender] = useState('all'); // all or specific peer name
-  const [tailscaleOffline, setTailscaleOffline] = useState(false);
+  const [tailscaleOffline, setTailscaleOffline] = useState(propTailscaleOffline || false);
+  const [noPeersOnline, setNoPeersOnline] = useState(false); // Show warning when no peers online
   const [pendingAction, setPendingAction] = useState(null); // Store action to retry
   const dragCounterRef = useRef(0);
+
+  // Sync with prop
+  useEffect(() => {
+    if (propTailscaleOffline !== undefined) {
+      setTailscaleOffline(propTailscaleOffline);
+    }
+  }, [propTailscaleOffline]);
 
   useEffect(() => {
     loadData();
@@ -108,6 +117,36 @@ function Gallery() {
     return status?.running === true;
   };
 
+  // Check peer online status
+  const checkPeersStatus = useCallback(async () => {
+    try {
+      const status = await window.electronAPI.checkAllPeersStatus();
+      setPeerStatus(status);
+      
+      // Check if any peers are online
+      const onlineCount = Object.values(status).filter(isOnline => isOnline).length;
+      return onlineCount > 0;
+    } catch (err) {
+      console.error('[Gallery] Error checking peer status:', err);
+      return false;
+    }
+  }, []);
+
+  // Check if any peers are online before sharing
+  const hasOnlinePeers = useCallback(() => {
+    const onlineCount = Object.values(peerStatus).filter(isOnline => isOnline).length;
+    return onlineCount > 0;
+  }, [peerStatus]);
+
+  // Periodically check peer status
+  useEffect(() => {
+    if (!tailscaleOffline && peers.length > 0) {
+      checkPeersStatus();
+      const interval = setInterval(checkPeersStatus, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [tailscaleOffline, peers, checkPeersStatus]);
+
   const handleRetryTailscale = async () => {
     const isOnline = await checkTailscaleStatus();
     if (isOnline) {
@@ -123,6 +162,24 @@ function Gallery() {
 
   const dismissTailscaleWarning = () => {
     setTailscaleOffline(false);
+    setPendingAction(null);
+  };
+
+  const handleRetryPeers = async () => {
+    const hasPeersOnline = await checkPeersStatus();
+    if (hasPeersOnline) {
+      setNoPeersOnline(false);
+      // Execute pending action if any
+      if (pendingAction) {
+        const action = pendingAction;
+        setPendingAction(null);
+        action();
+      }
+    }
+  };
+
+  const dismissNoPeersWarning = () => {
+    setNoPeersOnline(false);
     setPendingAction(null);
   };
 
@@ -171,8 +228,19 @@ function Gallery() {
       return;
     }
 
+    // Check if any peers are online
+    const hasPeersOnline = await checkPeersStatus();
+    if (!hasPeersOnline) {
+      // Store the action to retry later
+      setPendingAction(() => async () => {
+        await processDroppedItems(droppedItems);
+      });
+      setNoPeersOnline(true);
+      return;
+    }
+
     await processDroppedItems(droppedItems);
-  }, []);
+  }, [checkPeersStatus]);
 
   const processDroppedItems = async (droppedItems) => {
     // Separate folders from files
@@ -223,6 +291,14 @@ function Gallery() {
     if (!isOnline) {
       setPendingAction(() => handleSelectFiles);
       setTailscaleOffline(true);
+      return;
+    }
+
+    // Check if any peers are online
+    const hasPeersOnline = await checkPeersStatus();
+    if (!hasPeersOnline) {
+      setPendingAction(() => handleSelectFiles);
+      setNoPeersOnline(true);
       return;
     }
     
@@ -293,6 +369,14 @@ function Gallery() {
     if (!isOnline) {
       setPendingAction(() => handleSelectFolder);
       setTailscaleOffline(true);
+      return;
+    }
+
+    // Check if any peers are online
+    const hasPeersOnline = await checkPeersStatus();
+    if (!hasPeersOnline) {
+      setPendingAction(() => handleSelectFolder);
+      setNoPeersOnline(true);
       return;
     }
     
@@ -459,6 +543,36 @@ function Gallery() {
         </div>
       )}
 
+      {/* No Peers Online Modal */}
+      {noPeersOnline && (
+        <div className="tailscale-modal-overlay">
+          <div className="tailscale-modal">
+            <div className="tailscale-modal-icon warning">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <h2 className="tailscale-modal-title">NO PEERS ONLINE</h2>
+            <p className="tailscale-modal-message">
+              None of your peers are currently online. Files will not be received until a peer comes online.
+            </p>
+            <p className="tailscale-modal-hint">
+              Wait for a peer to come online or check their Tailscale connection.
+            </p>
+            <div className="tailscale-modal-actions">
+              <button onClick={handleRetryPeers} className="primary">
+                CHECK AGAIN
+              </button>
+              <button onClick={dismissNoPeersWarning} className="secondary">
+                DISMISS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="gallery-header">
         <div className="gallery-header-left">
           <h1 className="gallery-title">GALLERY</h1>
@@ -489,7 +603,7 @@ function Gallery() {
                     {peers.map((peer) => (
                       <div key={peer.ip} className="peer-tooltip-item">
                         <div className="peer-tooltip-status">
-                          <span className="peer-tooltip-status-dot online"></span>
+                          <span className={`peer-tooltip-status-dot ${peerStatus[peer.ip] ? 'online' : 'offline'}`}></span>
                         </div>
                         <div className="peer-tooltip-info">
                           <span className="peer-tooltip-name">{peer.name}</span>

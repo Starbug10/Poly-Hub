@@ -1,11 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import './Onboarding.css';
 
-function Onboarding({ tailscaleStatus, onComplete }) {
+function Onboarding({ tailscaleStatus, existingProfile, onComplete }) {
   const [step, setStep] = useState('checking'); // checking, profile
   const [tailscaleIP, setTailscaleIP] = useState(null);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  useEffect(() => {
+    // Load existing profile name if available
+    async function loadExistingProfile() {
+      const profile = await window.electronAPI.getProfile();
+      if (profile?.name) {
+        setName(profile.name);
+      }
+    }
+    loadExistingProfile();
+  }, []);
 
   useEffect(() => {
     async function checkTailscale() {
@@ -21,12 +33,14 @@ function Onboarding({ tailscaleStatus, onComplete }) {
   }, [tailscaleStatus]);
 
   const handleRetryTailscale = async () => {
+    setRetrying(true);
     const status = await window.electronAPI.getTailscaleStatus();
     if (status?.running) {
       const ip = await window.electronAPI.getTailscaleIP();
       setTailscaleIP(ip);
       setStep('profile');
     }
+    setRetrying(false);
   };
 
   const handleSaveProfile = async () => {
@@ -71,8 +85,8 @@ function Onboarding({ tailscaleStatus, onComplete }) {
                 </ol>
               </div>
 
-              <button className="primary" onClick={handleRetryTailscale}>
-                RETRY DETECTION
+              <button className="primary" onClick={handleRetryTailscale} disabled={retrying}>
+                {retrying ? 'CHECKING...' : 'RETRY DETECTION'}
               </button>
             </div>
           </div>

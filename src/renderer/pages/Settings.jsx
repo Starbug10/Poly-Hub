@@ -5,6 +5,7 @@ function Settings({ profile: initialProfile }) {
   const [settings, setSettings] = useState({
     syncFolder: null,
     maxFileSize: '',
+    maxStorageSize: '',
     notifications: true,
     theme: 'dark',
     roundedCorners: false,
@@ -13,10 +14,12 @@ function Settings({ profile: initialProfile }) {
   });
   const [profile, setProfile] = useState(initialProfile);
   const [peers, setPeers] = useState([]);
+  const [peerStatus, setPeerStatus] = useState({}); // Track online/offline status
   const [saved, setSaved] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [storageStats, setStorageStats] = useState(null);
+  const [appVersion, setAppVersion] = useState(null);
   
   // Discovery state
   const [pairingLink, setPairingLink] = useState('');
@@ -35,12 +38,42 @@ function Settings({ profile: initialProfile }) {
         return [...prev, peer];
       });
       setPairingStatus({ type: 'success', message: `${peer.name} connected to you!` });
+      // Mark new peer as online
+      setPeerStatus((prev) => ({ ...prev, [peer.ip]: true }));
     });
 
     return () => {
       window.electronAPI.removeAllListeners('peer:added');
     };
   }, []);
+
+  // Check peer status periodically
+  useEffect(() => {
+    if (peers.length === 0) return;
+
+    // Initial check
+    checkPeersStatus();
+
+    // Then check every 10 seconds
+    const interval = setInterval(checkPeersStatus, 10000);
+    return () => clearInterval(interval);
+  }, [peers]);
+
+  const [checkingPeers, setCheckingPeers] = useState(false);
+
+  const checkPeersStatus = async () => {
+    setCheckingPeers(true);
+    try {
+      const statusResults = await window.electronAPI.checkAllPeersStatus();
+      const statusMap = {};
+      statusResults.forEach(result => {
+        statusMap[result.ip] = result.online;
+      });
+      setPeerStatus(statusMap);
+    } finally {
+      setCheckingPeers(false);
+    }
+  };
 
   useEffect(() => {
     // Apply theme to document
@@ -74,10 +107,11 @@ function Settings({ profile: initialProfile }) {
 
   async function loadData() {
     const currentSettings = await window.electronAPI.getSettings();
-    // Ensure maxFileSize is always a string for controlled input
+    // Ensure maxFileSize and maxStorageSize are always strings for controlled inputs
     setSettings({
       ...currentSettings,
       maxFileSize: currentSettings.maxFileSize != null ? String(currentSettings.maxFileSize) : '',
+      maxStorageSize: currentSettings.maxStorageSize != null ? String(currentSettings.maxStorageSize) : '',
       roundedCorners: currentSettings.roundedCorners || false,
       accentColor: currentSettings.accentColor || '#ff6700',
       compactSidebar: currentSettings.compactSidebar || false,
@@ -122,6 +156,10 @@ function Settings({ profile: initialProfile }) {
     // Load pairing link
     const link = await window.electronAPI.generatePairingLink();
     setPairingLink(link);
+    
+    // Load app version
+    const version = await window.electronAPI.getVersion();
+    setAppVersion(version);
   }
 
   // Helper function to format bytes
@@ -397,6 +435,24 @@ function Settings({ profile: initialProfile }) {
                 <span className="value-unit">GB</span>
               </div>
             </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span className="label-title">Max Storage Size</span>
+                <span className="label-description">Maximum total folder size (GB). Blocks incoming files if exceeded.</span>
+              </div>
+              <div className="setting-value">
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  placeholder="Unlimited"
+                  value={settings.maxStorageSize || ''}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, maxStorageSize: e.target.value }))}
+                  className="setting-input"
+                />
+                <span className="value-unit">GB</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -569,27 +625,58 @@ function Settings({ profile: initialProfile }) {
 
         {/* Connected Peers Section */}
         <section className="settings-section">
-          <h2 className="section-title">CONNECTED PEERS ({peers.length})</h2>
+          <div className="section-header-row">
+            <h2 className="section-title">CONNECTED PEERS ({peers.length})</h2>
+            {peers.length > 0 && (
+              <button 
+                className="retry-peers-btn" 
+                onClick={checkPeersStatus}
+                disabled={checkingPeers}
+                title="Check peer status"
+              >
+                <svg 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                  className={checkingPeers ? 'spinning' : ''}
+                >
+                  <path d="M23 4v6h-6" />
+                  <path d="M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                {checkingPeers ? 'CHECKING...' : 'RETRY'}
+              </button>
+            )}
+          </div>
           <div className="settings-card">
             {peers.length === 0 ? (
               <div className="setting-row">
                 <span className="value-text text-muted">No peers connected. Use the pairing link above to connect!</span>
               </div>
             ) : (
-              peers.map((peer) => (
-                <div key={peer.ip} className="setting-row peer-row">
-                  <div className="peer-status-indicator">
-                    <div className="peer-status-dot online" />
+              peers.map((peer) => {
+                const isOnline = peerStatus[peer.ip] === true;
+                const isChecking = peerStatus[peer.ip] === undefined;
+                return (
+                  <div key={peer.ip} className="setting-row peer-row">
+                    <div className="peer-status-indicator">
+                      <div className={`peer-status-dot ${isOnline ? 'online' : 'offline'}`} />
+                    </div>
+                    <div className="setting-label">
+                      <span className="label-title">{peer.name}</span>
+                      <span className="label-description">{peer.ip}</span>
+                    </div>
+                    <div className="setting-value">
+                      <span className={`peer-status ${isOnline ? 'online' : 'offline'}`}>
+                        {isChecking ? 'Checking...' : isOnline ? 'Online' : 'Offline'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="setting-label">
-                    <span className="label-title">{peer.name}</span>
-                    <span className="label-description">{peer.ip}</span>
-                  </div>
-                  <div className="setting-value">
-                    <span className="peer-status">Connected</span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>
@@ -600,6 +687,17 @@ function Settings({ profile: initialProfile }) {
             {saved ? 'SAVED!' : 'SAVE SETTINGS'}
           </button>
         </div>
+
+        {/* Version Info */}
+        {appVersion && (
+          <div className="settings-version">
+            <span className="version-label">{appVersion.name}</span>
+            <span className="version-number">V{appVersion.version}</span>
+            {appVersion.buildDate && (
+              <span className="version-date">Build: {appVersion.buildDate}</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

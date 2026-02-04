@@ -8,7 +8,8 @@ const store = new Store({
     sharedFiles: [],
     settings: {
       syncFolder: null,
-      maxFileSize: null, // null = unlimited
+      maxFileSize: null, // null = unlimited (per file)
+      maxStorageSize: null, // null = unlimited (total folder size in GB)
       notifications: true,
       theme: 'dark', // 'dark' or 'light'
       roundedCorners: false,
@@ -77,6 +78,7 @@ function addPeer(peer) {
   peers.push({
     ...peer,
     addedAt: Date.now(),
+    lastSeen: Date.now(), // Track when peer was last seen
   });
   
   store.set('peers', peers);

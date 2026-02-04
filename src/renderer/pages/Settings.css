@@ -54,6 +54,61 @@
   margin: 0;
 }
 
+/* Section header with actions */
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.retry-peers-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: var(--border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.retry-peers-btn:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.retry-peers-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.retry-peers-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.retry-peers-btn svg.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rounded-corners .retry-peers-btn {
+  border-radius: var(--border-radius);
+}
+
 /* Card */
 .settings-card {
   border: var(--border);
@@ -510,4 +565,51 @@
 
 .peer-status-dot.offline {
   background-color: var(--color-error);
+}
+
+/* Peer status text */
+.peer-status {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.peer-status.online {
+  color: var(--color-success);
+}
+
+.peer-status.offline {
+  color: var(--color-text-dim);
+}
+
+/* Version Info */
+.settings-version {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-6) 0;
+  border-top: var(--border);
+  margin-top: var(--space-4);
+}
+
+.version-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+  letter-spacing: 0.15em;
+  font-weight: 600;
+}
+
+.version-number {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.version-date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
 }

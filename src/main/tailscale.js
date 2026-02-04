@@ -5,33 +5,69 @@ const execAsync = promisify(exec);
 
 /**
  * Check if Tailscale is installed and running
- * @returns {Promise<{installed: boolean, running: boolean, loggedIn: boolean}>}
+ * @returns {Promise<{installed: boolean, running: boolean, loggedIn: boolean, ip: string|null}>}
  */
 async function getTailscaleStatus() {
   try {
-    // Try to run tailscale status command
-    const { stdout } = await execAsync('tailscale status --json');
-    const status = JSON.parse(stdout);
+    // First check if we can get an IP - this is the most reliable way to know Tailscale is working
+    const ip = await getTailscaleIP();
     
-    return {
-      installed: true,
-      running: true,
-      loggedIn: status.BackendState === 'Running',
-    };
+    if (!ip) {
+      // No IP means Tailscale isn't connected even if daemon is running
+      try {
+        await execAsync('where tailscale');
+        return {
+          installed: true,
+          running: false,
+          loggedIn: false,
+          ip: null,
+        };
+      } catch {
+        return {
+          installed: false,
+          running: false,
+          loggedIn: false,
+          ip: null,
+        };
+      }
+    }
+    
+    // We have an IP, now check the status for more details
+    try {
+      const { stdout } = await execAsync('tailscale status --json');
+      const status = JSON.parse(stdout);
+      
+      return {
+        installed: true,
+        running: status.BackendState === 'Running',
+        loggedIn: status.BackendState === 'Running',
+        ip: ip,
+      };
+    } catch {
+      // We have IP but status check failed - still consider it running
+      return {
+        installed: true,
+        running: true,
+        loggedIn: true,
+        ip: ip,
+      };
+    }
   } catch (error) {
-    // Check if tailscale command exists
+    // Complete failure - check if tailscale is even installed
     try {
       await execAsync('where tailscale');
       return {
         installed: true,
         running: false,
         loggedIn: false,
+        ip: null,
       };
     } catch {
       return {
         installed: false,
         running: false,
         loggedIn: false,
+        ip: null,
       };
     }
   }

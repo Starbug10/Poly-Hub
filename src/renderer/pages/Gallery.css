@@ -46,6 +46,14 @@
   stroke: var(--color-accent);
 }
 
+.tailscale-modal-icon.warning {
+  color: #f59e0b;
+}
+
+.tailscale-modal-icon.warning svg {
+  stroke: #f59e0b;
+}
+
 .tailscale-modal-title {
   font-size: var(--font-size-lg);
   font-weight: 700;

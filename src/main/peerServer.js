@@ -13,10 +13,63 @@ class PeerServer extends EventEmitter {
     this.fileServer = null;
     this.connections = new Map();
     this.syncFolder = null;
+    this.maxStorageSize = null; // in bytes
+    this.maxFileSize = null; // in bytes
   }
 
   setSyncFolder(folder) {
     this.syncFolder = folder;
+  }
+
+  setStorageLimits(maxStorageSize, maxFileSize) {
+    this.maxStorageSize = maxStorageSize;
+    this.maxFileSize = maxFileSize;
+  }
+
+  /**
+   * Calculate current folder size
+   */
+  getFolderSize(folderPath) {
+    if (!folderPath || !fs.existsSync(folderPath)) return 0;
+    
+    let totalSize = 0;
+    const files = fs.readdirSync(folderPath);
+    
+    for (const file of files) {
+      const filePath = path.join(folderPath, file);
+      try {
+        const stats = fs.statSync(filePath);
+        if (stats.isDirectory()) {
+          totalSize += this.getFolderSize(filePath);
+        } else {
+          totalSize += stats.size;
+        }
+      } catch (err) {
+        // Skip files we can't read
+      }
+    }
+    
+    return totalSize;
+  }
+
+  /**
+   * Check if incoming file would exceed storage limits
+   */
+  checkStorageLimits(fileSize) {
+    // Check per-file limit
+    if (this.maxFileSize && fileSize > this.maxFileSize) {
+      return { allowed: false, reason: 'FILE_TOO_LARGE' };
+    }
+    
+    // Check total storage limit
+    if (this.maxStorageSize && this.syncFolder) {
+      const currentSize = this.getFolderSize(this.syncFolder);
+      if (currentSize + fileSize > this.maxStorageSize) {
+        return { allowed: false, reason: 'STORAGE_FULL' };
+      }
+    }
+    
+    return { allowed: true };
   }
 
   /**
@@ -95,6 +148,19 @@ class PeerServer extends EventEmitter {
             fileInfo = JSON.parse(headerData.toString());
             headerReceived = true;
             console.log(`[FILE-SERVER] Receiving file: ${fileInfo.name} (${fileInfo.size} bytes) from ${fileInfo.from?.name || 'unknown'}`);
+            
+            // Check storage limits before accepting file
+            const limitCheck = this.checkStorageLimits(fileInfo.size);
+            if (!limitCheck.allowed) {
+              console.log(`[FILE-SERVER] BLOCKED: File ${fileInfo.name} - ${limitCheck.reason}`);
+              this.emit('file-blocked', {
+                file: fileInfo,
+                from: fileInfo.from,
+                reason: limitCheck.reason,
+              });
+              socket.end();
+              return;
+            }
             
             // Create write stream for the file
             if (this.syncFolder) {

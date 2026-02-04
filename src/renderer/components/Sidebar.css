@@ -220,6 +220,14 @@
   border: 2px solid var(--color-surface);
 }
 
+.sidebar-profile-icon .status-indicator.offline {
+  background-color: var(--color-error);
+}
+
+.sidebar-profile-icon.offline {
+  opacity: 0.7;
+}
+
 .compact-sidebar .sidebar-profile {
   padding: var(--space-3);
 }
@@ -242,4 +250,9 @@
 
 .compact-sidebar .sidebar:hover .sidebar-profile-content {
   display: flex;
+  flex-direction: column;
+}
+
+.compact-sidebar .sidebar:hover .sidebar-profile-divider {
+  display: block;
 }

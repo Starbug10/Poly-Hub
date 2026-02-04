@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const net = require('net');
 const { pathToFileURL } = require('url');
 const { getTailscaleStatus, getTailscaleIP } = require('./tailscale');
 const { getProfile, saveProfile, updateProfile, getPeers, addPeer, updatePeer, getSettings, updateSettings, addSharedFile, getSharedFiles, removeSharedFile } = require('./store');
@@ -58,6 +59,9 @@ async function startPeerServer() {
           body: `${peerData.name} has connected to PolyHub`,
         }).show();
       }
+    } else if (result.reason === 'Peer already exists') {
+      // Update lastSeen for existing peer
+      updatePeer(peerData.ip, { lastSeen: Date.now() });
     }
   });
 
@@ -76,6 +80,9 @@ async function startPeerServer() {
   // Handle actual file transfers (new style - file data included)
   peerServer.on('file-received', (data) => {
     console.log(`[MAIN] File received: ${data.file.name} from ${data.from.name}`);
+    
+    // Update lastSeen for this peer
+    updatePeer(data.from.ip, { lastSeen: Date.now() });
     
     // Remove from receiving set
     if (data.file.path) {
@@ -112,6 +119,30 @@ async function startPeerServer() {
       receivingFiles.add(data.localPath);
     }
     mainWindow.webContents.send('file:progress', data);
+  });
+
+  // Handle blocked files (storage limits exceeded)
+  peerServer.on('file-blocked', (data) => {
+    console.log(`[MAIN] File blocked: ${data.file.name} - ${data.reason}`);
+    mainWindow.webContents.send('file:blocked', {
+      fileName: data.file.name,
+      fileSize: data.file.size,
+      from: data.from,
+      reason: data.reason,
+    });
+    
+    // Show notification
+    const settings = getSettings();
+    if (settings.notifications) {
+      const { Notification } = require('electron');
+      const message = data.reason === 'STORAGE_FULL' 
+        ? `Storage limit reached. "${data.file.name}" was blocked.`
+        : `File "${data.file.name}" exceeds size limit.`;
+      new Notification({
+        title: 'File Blocked',
+        body: message,
+      }).show();
+    }
   });
 
   // Handle incoming file deletion
@@ -156,6 +187,11 @@ async function startPeerServer() {
   }
   console.log(`[MAIN] Using sync folder: ${syncFolder}`);
   peerServer.setSyncFolder(syncFolder);
+  
+  // Set storage limits
+  const maxStorageBytes = settings.maxStorageSize ? settings.maxStorageSize * 1024 * 1024 * 1024 : null;
+  const maxFileBytes = settings.maxFileSize ? settings.maxFileSize * 1024 * 1024 * 1024 : null;
+  peerServer.setStorageLimits(maxStorageBytes, maxFileBytes);
 
   try {
     await peerServer.start();
@@ -313,6 +349,18 @@ ipcMain.handle('window:maximize', () => {
 });
 ipcMain.handle('window:close', () => mainWindow.close());
 
+// App info
+ipcMain.handle('app:version', () => {
+  try {
+    const versionPath = path.join(__dirname, '../../version.json');
+    const versionData = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+    return versionData;
+  } catch (err) {
+    console.error('[MAIN] Failed to read version.json:', err);
+    return { version: 'unknown', name: 'Poly-Hub' };
+  }
+});
+
 // Tailscale
 ipcMain.handle('tailscale:status', async () => {
   return await getTailscaleStatus();
@@ -350,6 +398,80 @@ ipcMain.handle('peers:get', () => {
 
 ipcMain.handle('peers:add', (event, peer) => {
   return addPeer(peer);
+});
+
+// Check if a specific peer is online
+ipcMain.handle('peers:checkStatus', async (event, peerIP) => {
+  const POLY_HUB_PORT = 47777;
+  const TIMEOUT = 3000; // 3 second timeout
+  
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let timedOut = false;
+    
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      socket.destroy();
+      resolve({ ip: peerIP, online: false });
+    }, TIMEOUT);
+    
+    socket.connect(POLY_HUB_PORT, peerIP, () => {
+      clearTimeout(timeout);
+      socket.end();
+      if (!timedOut) {
+        // Update lastSeen
+        updatePeer(peerIP, { lastSeen: Date.now() });
+        resolve({ ip: peerIP, online: true });
+      }
+    });
+    
+    socket.on('error', () => {
+      clearTimeout(timeout);
+      if (!timedOut) {
+        resolve({ ip: peerIP, online: false });
+      }
+    });
+  });
+});
+
+// Check status of all peers
+ipcMain.handle('peers:checkAllStatus', async () => {
+  const peers = getPeers();
+  const statusPromises = peers.map(peer => {
+    const POLY_HUB_PORT = 47777;
+    const TIMEOUT = 3000;
+    
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      let timedOut = false;
+      
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        socket.destroy();
+        resolve({ ip: peer.ip, name: peer.name, online: false });
+      }, TIMEOUT);
+      
+      socket.connect(POLY_HUB_PORT, peer.ip, () => {
+        clearTimeout(timeout);
+        socket.end();
+        if (!timedOut) {
+          // Update lastSeen
+          updatePeer(peer.ip, { lastSeen: Date.now() });
+          resolve({ ip: peer.ip, name: peer.name, online: true });
+        }
+      });
+      
+      socket.on('error', () => {
+        clearTimeout(timeout);
+        if (!timedOut) {
+          resolve({ ip: peer.ip, name: peer.name, online: false });
+        }
+      });
+    });
+  });
+  
+  const results = await Promise.all(statusPromises);
+  return results;
 });
 
 // Generate pairing link
@@ -744,9 +866,19 @@ ipcMain.handle('settings:update', (event, settings) => {
   const oldSettings = getSettings();
   const updated = updateSettings(settings);
   
-  // If sync folder changed, restart folder watcher
+  // If sync folder changed, restart folder watcher and update peer server
   if (oldSettings.syncFolder !== settings.syncFolder) {
     setupFolderWatcher(settings.syncFolder);
+    if (peerServer) {
+      peerServer.setSyncFolder(settings.syncFolder);
+    }
+  }
+  
+  // Update storage limits on peer server
+  if (peerServer) {
+    const maxStorageBytes = settings.maxStorageSize ? settings.maxStorageSize * 1024 * 1024 * 1024 : null;
+    const maxFileBytes = settings.maxFileSize ? settings.maxFileSize * 1024 * 1024 * 1024 : null;
+    peerServer.setStorageLimits(maxStorageBytes, maxFileBytes);
   }
   
   return updated;
