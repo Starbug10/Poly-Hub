@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // App info
   getVersion: () => ipcRenderer.invoke('app:version'),
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 
   // Tailscale
   getTailscaleStatus: () => ipcRenderer.invoke('tailscale:status'),

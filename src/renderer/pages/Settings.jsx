@@ -4,8 +4,8 @@ import './Settings.css';
 function Settings({ profile: initialProfile }) {
   const [settings, setSettings] = useState({
     syncFolder: null,
-    maxFileSize: '',
-    maxStorageSize: '',
+    maxFileSize: '5',
+    maxStorageSize: '5',
     notifications: true,
     theme: 'dark',
     roundedCorners: false,
@@ -20,7 +20,7 @@ function Settings({ profile: initialProfile }) {
   const [newName, setNewName] = useState('');
   const [storageStats, setStorageStats] = useState(null);
   const [appVersion, setAppVersion] = useState(null);
-  
+
   // Discovery state
   const [pairingLink, setPairingLink] = useState('');
   const [inputLink, setInputLink] = useState('');
@@ -30,7 +30,7 @@ function Settings({ profile: initialProfile }) {
 
   useEffect(() => {
     loadData();
-    
+
     // Listen for incoming peer additions (reverse-add)
     window.electronAPI.onPeerAdded((peer) => {
       setPeers((prev) => {
@@ -78,21 +78,21 @@ function Settings({ profile: initialProfile }) {
   useEffect(() => {
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', settings.theme);
-    
+
     // Apply rounded corners preference
     if (settings.roundedCorners) {
       document.documentElement.classList.add('rounded-corners');
     } else {
       document.documentElement.classList.remove('rounded-corners');
     }
-    
+
     // Apply compact sidebar preference
     if (settings.compactSidebar) {
       document.documentElement.classList.add('compact-sidebar');
     } else {
       document.documentElement.classList.remove('compact-sidebar');
     }
-    
+
     // Apply accent color
     if (settings.accentColor) {
       document.documentElement.style.setProperty('--color-accent', settings.accentColor);
@@ -108,10 +108,11 @@ function Settings({ profile: initialProfile }) {
   async function loadData() {
     const currentSettings = await window.electronAPI.getSettings();
     // Ensure maxFileSize and maxStorageSize are always strings for controlled inputs
+    // Use the values from settings (which now default to 5GB)
     setSettings({
       ...currentSettings,
-      maxFileSize: currentSettings.maxFileSize != null ? String(currentSettings.maxFileSize) : '',
-      maxStorageSize: currentSettings.maxStorageSize != null ? String(currentSettings.maxStorageSize) : '',
+      maxFileSize: currentSettings.maxFileSize != null ? String(currentSettings.maxFileSize) : '5',
+      maxStorageSize: currentSettings.maxStorageSize != null ? String(currentSettings.maxStorageSize) : '5',
       roundedCorners: currentSettings.roundedCorners || false,
       accentColor: currentSettings.accentColor || '#ff6700',
       compactSidebar: currentSettings.compactSidebar || false,
@@ -119,17 +120,17 @@ function Settings({ profile: initialProfile }) {
 
     // Apply saved theme on load
     document.documentElement.setAttribute('data-theme', currentSettings.theme || 'dark');
-    
+
     // Apply rounded corners on load
     if (currentSettings.roundedCorners) {
       document.documentElement.classList.add('rounded-corners');
     }
-    
+
     // Apply compact sidebar on load
     if (currentSettings.compactSidebar) {
       document.documentElement.classList.add('compact-sidebar');
     }
-    
+
     // Apply accent color on load
     if (currentSettings.accentColor) {
       document.documentElement.style.setProperty('--color-accent', currentSettings.accentColor);
@@ -152,11 +153,11 @@ function Settings({ profile: initialProfile }) {
     // Load storage stats
     const stats = await window.electronAPI.getStorageStats();
     setStorageStats(stats);
-    
+
     // Load pairing link
     const link = await window.electronAPI.generatePairingLink();
     setPairingLink(link);
-    
+
     // Load app version
     const version = await window.electronAPI.getVersion();
     setAppVersion(version);
@@ -266,9 +267,9 @@ function Settings({ profile: initialProfile }) {
       if (connectResult.success) {
         setPairingStatus({ type: 'success', message: `Connected to ${peerData.name}!` });
       } else {
-        setPairingStatus({ 
-          type: 'warning', 
-          message: `Added ${peerData.name}, but couldn't notify them (they may be offline)` 
+        setPairingStatus({
+          type: 'warning',
+          message: `Added ${peerData.name}, but couldn't notify them (they may be offline)`
         });
       }
 
@@ -340,7 +341,7 @@ function Settings({ profile: initialProfile }) {
         {/* Storage Section */}
         <section className="settings-section">
           <h2 className="section-title">STORAGE</h2>
-          
+
           {/* Storage Status Bar */}
           {storageStats && settings.syncFolder && (
             <div className="storage-stats">
@@ -348,7 +349,7 @@ function Settings({ profile: initialProfile }) {
                 <span className="storage-used">{formatBytes(storageStats.folderSize)}</span>
                 <span className="storage-divider">/</span>
                 <span className="storage-total">
-                  {storageStats.maxSize 
+                  {storageStats.maxSize
                     ? formatBytes(storageStats.maxSize) + ' limit'
                     : formatBytes(storageStats.diskTotal) + ' disk'
                   }
@@ -357,12 +358,12 @@ function Settings({ profile: initialProfile }) {
                   ({formatBytes(storageStats.diskFree)} free)
                 </span>
               </div>
-              
+
               {/* Visual bar showing usage by file type */}
               <div className="storage-bar-container">
                 <div className="storage-bar">
                   {Object.entries(storageStats.filesByType).map(([type, data]) => {
-                    const percentage = storageStats.maxSize 
+                    const percentage = storageStats.maxSize
                       ? (data.size / storageStats.maxSize) * 100
                       : (data.size / storageStats.diskTotal) * 100;
                     if (percentage < 0.5) return null;
@@ -381,15 +382,15 @@ function Settings({ profile: initialProfile }) {
                 </div>
                 <div className="storage-bar-bg" />
               </div>
-              
+
               {/* Legend */}
               <div className="storage-legend">
                 {Object.entries(storageStats.filesByType).map(([type, data]) => {
                   if (data.count === 0) return null;
                   return (
                     <div key={type} className="storage-legend-item">
-                      <span 
-                        className="storage-legend-color" 
+                      <span
+                        className="storage-legend-color"
                         style={{ backgroundColor: data.color }}
                       />
                       <span className="storage-legend-label">
@@ -401,7 +402,7 @@ function Settings({ profile: initialProfile }) {
               </div>
             </div>
           )}
-          
+
           <div className="settings-card">
             <div className="setting-row">
               <div className="setting-label">
@@ -628,18 +629,18 @@ function Settings({ profile: initialProfile }) {
           <div className="section-header-row">
             <h2 className="section-title">CONNECTED PEERS ({peers.length})</h2>
             {peers.length > 0 && (
-              <button 
-                className="retry-peers-btn" 
+              <button
+                className="retry-peers-btn"
                 onClick={checkPeersStatus}
                 disabled={checkingPeers}
                 title="Check peer status"
               >
-                <svg 
-                  width="16" 
-                  height="16" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
                   strokeWidth="2"
                   className={checkingPeers ? 'spinning' : ''}
                 >
@@ -693,6 +694,13 @@ function Settings({ profile: initialProfile }) {
           <div className="settings-version">
             <span className="version-label">{appVersion.name}</span>
             <span className="version-number">V{appVersion.version}</span>
+            <span className="version-divider">•</span>
+            <button
+              onClick={() => window.electronAPI.openExternal('https://poly-hub.netlify.app/')}
+              className="version-website"
+            >
+              poly-hub.netlify.app
+            </button>
             {appVersion.buildDate && (
               <span className="version-date">Build: {appVersion.buildDate}</span>
             )}

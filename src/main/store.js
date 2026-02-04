@@ -8,13 +8,14 @@ const store = new Store({
     sharedFiles: [],
     settings: {
       syncFolder: null,
-      maxFileSize: null, // null = unlimited (per file)
-      maxStorageSize: null, // null = unlimited (total folder size in GB)
+      maxFileSize: 5, // Default 5GB per file (null = unlimited)
+      maxStorageSize: 5, // Default 5GB total folder size (null = unlimited)
       notifications: true,
       theme: 'dark', // 'dark' or 'light'
       roundedCorners: false,
       accentColor: '#ff6700', // Safety Orange (default)
       compactSidebar: false, // Icon-only sidebar mode
+      _migrated: false, // Track if user has been migrated to 5GB defaults
     },
   },
 });
@@ -68,19 +69,19 @@ function getPeers() {
  */
 function addPeer(peer) {
   const peers = getPeers();
-  
+
   // Check if peer already exists
   const exists = peers.some((p) => p.ip === peer.ip);
   if (exists) {
     return { success: false, reason: 'Peer already exists' };
   }
-  
+
   peers.push({
     ...peer,
     addedAt: Date.now(),
     lastSeen: Date.now(), // Track when peer was last seen
   });
-  
+
   store.set('peers', peers);
   return { success: true, peers: getPeers() };
 }
@@ -103,9 +104,43 @@ function updatePeer(peerIP, updates) {
 
 /**
  * Get settings
+ * Ensures existing users get the 5GB defaults if they have null/undefined values (one-time migration)
  */
 function getSettings() {
-  return store.get('settings');
+  const settings = store.get('settings');
+
+  // Only migrate if user hasn't been migrated yet AND has null/undefined/empty values
+  if (!settings._migrated) {
+    const needsMigration =
+      settings.maxFileSize === null ||
+      settings.maxFileSize === undefined ||
+      settings.maxFileSize === '' ||
+      settings.maxStorageSize === null ||
+      settings.maxStorageSize === undefined ||
+      settings.maxStorageSize === '';
+
+    if (needsMigration) {
+      // Apply defaults for existing users who have null/undefined/empty values
+      const updatedSettings = {
+        ...settings,
+        maxFileSize: (settings.maxFileSize === null || settings.maxFileSize === undefined || settings.maxFileSize === '') ? 5 : settings.maxFileSize,
+        maxStorageSize: (settings.maxStorageSize === null || settings.maxStorageSize === undefined || settings.maxStorageSize === '') ? 5 : settings.maxStorageSize,
+        _migrated: true, // Mark as migrated so we don't override user changes
+      };
+
+      // Save the updated settings
+      store.set('settings', updatedSettings);
+      console.log('[STORE] Migrated settings to 5GB defaults:', updatedSettings);
+      return updatedSettings;
+    } else {
+      // User already had values set, just mark as migrated
+      const updatedSettings = { ...settings, _migrated: true };
+      store.set('settings', updatedSettings);
+      return updatedSettings;
+    }
+  }
+
+  return settings;
 }
 
 /**
@@ -128,13 +163,13 @@ function getSharedFiles() {
  */
 function addSharedFile(file) {
   const files = getSharedFiles();
-  
+
   // Check if file already exists (by id or path)
   const exists = files.some((f) => f.id === file.id || f.path === file.path);
   if (exists) {
     return { success: false, reason: 'File already shared' };
   }
-  
+
   files.push(file);
   store.set('sharedFiles', files);
   return { success: true, files: getSharedFiles() };

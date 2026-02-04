@@ -49,7 +49,7 @@ async function startPeerServer() {
       console.log(`[MAIN] Successfully added peer: ${peerData.name}`);
       // Notify renderer about new peer
       mainWindow.webContents.send('peer:added', peerData);
-      
+
       // Show notification
       const settings = getSettings();
       if (settings.notifications) {
@@ -80,10 +80,10 @@ async function startPeerServer() {
   // Handle actual file transfers (new style - file data included)
   peerServer.on('file-received', (data) => {
     console.log(`[MAIN] File received: ${data.file.name} from ${data.from.name}`);
-    
+
     // Update lastSeen for this peer
     updatePeer(data.from.ip, { lastSeen: Date.now() });
-    
+
     // Remove from receiving set
     if (data.file.path) {
       receivingFiles.delete(data.file.path);
@@ -91,7 +91,7 @@ async function startPeerServer() {
     if (data.file.localPath) {
       receivingFiles.delete(data.file.localPath);
     }
-    
+
     const file = {
       ...data.file,
       from: data.from,
@@ -99,7 +99,7 @@ async function startPeerServer() {
     };
     addSharedFile(file);
     mainWindow.webContents.send('file:received', file);
-    
+
     // Show notification
     const settings = getSettings();
     if (settings.notifications) {
@@ -130,12 +130,12 @@ async function startPeerServer() {
       from: data.from,
       reason: data.reason,
     });
-    
+
     // Show notification
     const settings = getSettings();
     if (settings.notifications) {
       const { Notification } = require('electron');
-      const message = data.reason === 'STORAGE_FULL' 
+      const message = data.reason === 'STORAGE_FULL'
         ? `Storage limit reached. "${data.file.name}" was blocked.`
         : `File "${data.file.name}" exceeds size limit.`;
       new Notification({
@@ -148,7 +148,7 @@ async function startPeerServer() {
   // Handle incoming file deletion
   peerServer.on('file-delete', (data) => {
     console.log(`[MAIN] File deletion received: ${data.fileId}`);
-    
+
     // Also delete from disk
     const sharedFiles = getSharedFiles();
     const fileToDelete = sharedFiles.find(f => f.id === data.fileId);
@@ -162,7 +162,7 @@ async function startPeerServer() {
         console.error(`[MAIN] ERROR: Failed to delete file from disk: ${err.message}`);
       }
     }
-    
+
     removeSharedFile(data.fileId);
     mainWindow.webContents.send('file:deleted', data.fileId);
   });
@@ -187,7 +187,7 @@ async function startPeerServer() {
   }
   console.log(`[MAIN] Using sync folder: ${syncFolder}`);
   peerServer.setSyncFolder(syncFolder);
-  
+
   // Set storage limits
   const maxStorageBytes = settings.maxStorageSize ? settings.maxStorageSize * 1024 * 1024 * 1024 : null;
   const maxFileBytes = settings.maxFileSize ? settings.maxFileSize * 1024 * 1024 * 1024 : null;
@@ -198,7 +198,7 @@ async function startPeerServer() {
   } catch (err) {
     console.error('Failed to start peer server:', err);
   }
-  
+
   // Setup folder watcher for auto-sync
   setupFolderWatcher(syncFolder);
 }
@@ -211,14 +211,14 @@ function setupFolderWatcher(syncFolder) {
     folderWatcher.close();
     folderWatcher = null;
   }
-  
+
   if (!syncFolder || !fs.existsSync(syncFolder)) {
     console.log('[MAIN] No valid sync folder, skipping folder watcher setup');
     return;
   }
-  
+
   console.log(`[MAIN] Setting up folder watcher for: ${syncFolder}`);
-  
+
   // Track existing files to avoid re-adding them
   const existingFiles = new Set();
   const sharedFiles = getSharedFiles();
@@ -227,63 +227,63 @@ function setupFolderWatcher(syncFolder) {
       existingFiles.add(file.path);
     }
   });
-  
+
   // Watch for new files and deletions
   folderWatcher = fs.watch(syncFolder, { recursive: true }, async (eventType, filename) => {
     if (eventType !== 'rename' || !filename) return;
-    
+
     const filePath = path.join(syncFolder, filename);
     const fileExists = fs.existsSync(filePath);
-    
+
     // Handle file deletion
     if (!fileExists && existingFiles.has(filePath)) {
       console.log(`[MAIN] File deleted from sync folder: ${filename}`);
       existingFiles.delete(filePath);
-      
+
       // Find the file in shared files by path
       const sharedFiles = getSharedFiles();
       const deletedFile = sharedFiles.find(f => f.path === filePath);
-      
+
       if (deletedFile) {
         // Remove from shared files
         removeSharedFile(deletedFile.id);
-        
+
         // Notify renderer to update gallery
         mainWindow.webContents.send('file:deleted', deletedFile.id);
-        
+
         console.log(`[MAIN] Auto-removed file from gallery: ${filename}`);
       }
       return;
     }
-    
+
     // Handle file creation
     if (!fileExists) return;
-    
+
     // Check if it's actually a file
     const stats = fs.statSync(filePath);
     if (!stats.isFile()) return;
-    
+
     // Skip if already tracked
     if (existingFiles.has(filePath)) return;
-    
+
     // Skip if file is currently being received from a peer
     if (receivingFiles.has(filePath)) {
       console.log(`[MAIN] Skipping file (currently receiving): ${filename}`);
       return;
     }
-    
+
     // Skip temporary files
     if (filename.startsWith('.') || filename.endsWith('.tmp')) return;
-    
+
     // Skip files with 0 size (still being written)
     if (stats.size === 0) {
       console.log(`[MAIN] Skipping file (0 bytes, possibly still writing): ${filename}`);
       return;
     }
-    
+
     console.log(`[MAIN] New file detected in sync folder: ${filename}`);
     existingFiles.add(filePath);
-    
+
     // Add to shared files
     const fileExt = path.extname(filename).toLowerCase().slice(1);
     const file = {
@@ -295,21 +295,21 @@ function setupFolderWatcher(syncFolder) {
       sharedAt: Date.now(),
       sharedBy: 'You',
     };
-    
+
     addSharedFile(file);
-    
+
     // Notify renderer
     mainWindow.webContents.send('file:auto-added', file);
-    
+
     console.log(`[MAIN] Auto-added file: ${filename}`);
   });
-  
+
   console.log('[MAIN] Folder watcher active');
 }
 
 app.whenReady().then(async () => {
   console.log('[MAIN] PolyHub starting up...');
-  
+
   // Register custom protocol for loading local file thumbnails
   protocol.registerFileProtocol('polyhub-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('polyhub-file://', ''));
@@ -319,7 +319,7 @@ app.whenReady().then(async () => {
 
   createWindow();
   console.log('[MAIN] Main window created');
-  
+
   await startPeerServer();
   console.log('[MAIN] PolyHub ready');
 });
@@ -361,6 +361,17 @@ ipcMain.handle('app:version', () => {
   }
 });
 
+// Open external URL in default browser
+ipcMain.handle('app:openExternal', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    console.error('[MAIN] Failed to open external URL:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 // Tailscale
 ipcMain.handle('tailscale:status', async () => {
   return await getTailscaleStatus();
@@ -382,12 +393,12 @@ ipcMain.handle('profile:save', (event, profile) => {
 ipcMain.handle('profile:update', async (event, updates) => {
   const updatedProfile = updateProfile(updates);
   const peers = getPeers();
-  
+
   // Notify all peers about profile update
   for (const peer of peers) {
     await announceProfileUpdate(peer.ip, updatedProfile);
   }
-  
+
   return updatedProfile;
 });
 
@@ -404,17 +415,17 @@ ipcMain.handle('peers:add', (event, peer) => {
 ipcMain.handle('peers:checkStatus', async (event, peerIP) => {
   const POLY_HUB_PORT = 47777;
   const TIMEOUT = 3000; // 3 second timeout
-  
+
   return new Promise((resolve) => {
     const socket = new net.Socket();
     let timedOut = false;
-    
+
     const timeout = setTimeout(() => {
       timedOut = true;
       socket.destroy();
       resolve({ ip: peerIP, online: false });
     }, TIMEOUT);
-    
+
     socket.connect(POLY_HUB_PORT, peerIP, () => {
       clearTimeout(timeout);
       socket.end();
@@ -424,7 +435,7 @@ ipcMain.handle('peers:checkStatus', async (event, peerIP) => {
         resolve({ ip: peerIP, online: true });
       }
     });
-    
+
     socket.on('error', () => {
       clearTimeout(timeout);
       if (!timedOut) {
@@ -440,17 +451,17 @@ ipcMain.handle('peers:checkAllStatus', async () => {
   const statusPromises = peers.map(peer => {
     const POLY_HUB_PORT = 47777;
     const TIMEOUT = 3000;
-    
+
     return new Promise((resolve) => {
       const socket = new net.Socket();
       let timedOut = false;
-      
+
       const timeout = setTimeout(() => {
         timedOut = true;
         socket.destroy();
         resolve({ ip: peer.ip, name: peer.name, online: false });
       }, TIMEOUT);
-      
+
       socket.connect(POLY_HUB_PORT, peer.ip, () => {
         clearTimeout(timeout);
         socket.end();
@@ -460,7 +471,7 @@ ipcMain.handle('peers:checkAllStatus', async () => {
           resolve({ ip: peer.ip, name: peer.name, online: true });
         }
       });
-      
+
       socket.on('error', () => {
         clearTimeout(timeout);
         if (!timedOut) {
@@ -469,7 +480,7 @@ ipcMain.handle('peers:checkAllStatus', async () => {
       });
     });
   });
-  
+
   const results = await Promise.all(statusPromises);
   return results;
 });
@@ -478,13 +489,13 @@ ipcMain.handle('peers:checkAllStatus', async () => {
 ipcMain.handle('pairing:generate', () => {
   const profile = getProfile();
   if (!profile) return null;
-  
+
   const pairingData = {
     name: profile.name,
     ip: profile.ip,
     timestamp: Date.now(),
   };
-  
+
   const encoded = Buffer.from(JSON.stringify(pairingData)).toString('base64url');
   return `polyhub://pair/${encoded}`;
 });
@@ -494,7 +505,7 @@ ipcMain.handle('pairing:parse', (event, link) => {
   try {
     const match = link.match(/polyhub:\/\/pair\/(.+)/);
     if (!match) return null;
-    
+
     const decoded = Buffer.from(match[1], 'base64url').toString('utf-8');
     return JSON.parse(decoded);
   } catch {
@@ -542,11 +553,11 @@ ipcMain.handle('dialog:selectFolder', async () => {
 
   const folderPath = result.filePaths[0];
   console.log(`[MAIN] Folder selected: ${folderPath}`);
-  
+
   // Get all files in the folder recursively
   const files = getAllFilesInFolder(folderPath);
   console.log(`[MAIN] Found ${files.length} file(s) in folder`);
-  
+
   return {
     path: folderPath,
     name: path.basename(folderPath),
@@ -658,21 +669,21 @@ ipcMain.handle('files:share', async (event, files) => {
 // Share a folder with all files preserving structure
 ipcMain.handle('files:shareFolder', async (event, folderPath) => {
   console.log(`[MAIN] Sharing folder: ${folderPath}`);
-  
+
   // Validate folder exists
   if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
     console.error(`[MAIN] ERROR: Invalid folder path: ${folderPath}`);
     return [];
   }
-  
+
   const profile = getProfile();
   const peers = getPeers();
   const settings = getSettings();
   const results = [];
-  
+
   // Get folder name
   const folderName = path.basename(folderPath);
-  
+
   // Set default sync folder if not configured
   let syncFolder = settings.syncFolder;
   if (!syncFolder) {
@@ -682,24 +693,24 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
     }
     updateSettings({ syncFolder });
   }
-  
+
   // Create destination folder in sync folder
   const destFolderPath = path.join(syncFolder, folderName);
-  
+
   // Helper to copy folder recursively and collect files
   async function copyFolderRecursive(srcDir, destDir, relativePath = '') {
     // Create destination directory
     if (!fs.existsSync(destDir)) {
       fs.mkdirSync(destDir, { recursive: true });
     }
-    
+
     const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-    
+
     for (const entry of entries) {
       const srcPath = path.join(srcDir, entry.name);
       const destPath = path.join(destDir, entry.name);
       const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-      
+
       if (entry.isDirectory()) {
         // Recursively copy subdirectories
         await copyFolderRecursive(srcPath, destPath, relPath);
@@ -709,7 +720,7 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
           fs.copyFileSync(srcPath, destPath);
           const stats = fs.statSync(destPath);
           const ext = path.extname(entry.name).slice(1) || 'file';
-          
+
           const sharedFile = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             name: entry.name,
@@ -722,10 +733,10 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
             relativePath: `${folderName}/${relPath}`,
             folderName: folderName,
           };
-          
+
           addSharedFile(sharedFile);
           results.push(sharedFile);
-          
+
           console.log(`[MAIN] Copied: ${relPath}`);
         } catch (err) {
           console.error(`[MAIN] ERROR: Failed to copy ${entry.name}:`, err);
@@ -733,12 +744,12 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
       }
     }
   }
-  
+
   // Copy the folder
   await copyFolderRecursive(folderPath, destFolderPath);
-  
+
   console.log(`[MAIN] Folder copied, ${results.length} file(s)`);
-  
+
   // Send all files to peers
   for (const file of results) {
     console.log(`[MAIN] Announcing ${file.relativePath || file.name} to ${peers.length} peer(s)`);
@@ -746,7 +757,7 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
       await announceFile(peer.ip, file, profile);
     }
   }
-  
+
   console.log(`[MAIN] Successfully shared folder with ${results.length} file(s)`);
   return results;
 });
@@ -762,13 +773,13 @@ ipcMain.handle('files:delete', async (event, fileId) => {
   const profile = getProfile();
   const peers = getPeers();
   const sharedFiles = getSharedFiles();
-  
+
   // Find the file to get its path
   const fileToDelete = sharedFiles.find(f => f.id === fileId);
-  
+
   // Remove from local storage first
   const result = removeSharedFile(fileId);
-  
+
   // Delete the actual file from disk
   if (fileToDelete && fileToDelete.path) {
     try {
@@ -810,7 +821,7 @@ ipcMain.handle('files:getThumbnail', async (event, filePath) => {
   try {
     const ext = path.extname(filePath).toLowerCase();
     const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tiff', '.tif'];
-    
+
     if (imageExts.includes(ext)) {
       // For image files, create a thumbnail from the actual image
       const image = nativeImage.createFromPath(filePath);
@@ -820,13 +831,13 @@ ipcMain.handle('files:getThumbnail', async (event, filePath) => {
         const maxSize = 400;
         let width = size.width;
         let height = size.height;
-        
+
         if (width > maxSize || height > maxSize) {
           const ratio = Math.min(maxSize / width, maxSize / height);
           width = Math.floor(width * ratio);
           height = Math.floor(height * ratio);
         }
-        
+
         const thumbnail = image.resize({ width, height, quality: 'best' });
         return thumbnail.toDataURL();
       }
@@ -841,15 +852,15 @@ ipcMain.handle('files:getThumbnail', async (event, filePath) => {
         // If icon is small, scale it up with nearest neighbor for pixelated look
         // Otherwise use best quality
         const targetSize = 64;
-        const resized = icon.resize({ 
-          width: targetSize, 
-          height: targetSize, 
+        const resized = icon.resize({
+          width: targetSize,
+          height: targetSize,
           quality: 'best'
         });
         return resized.toDataURL();
       }
     }
-    
+
     return null;
   } catch (err) {
     console.error(`[MAIN] ERROR: Failed to generate thumbnail for ${filePath}:`, err);
@@ -865,7 +876,7 @@ ipcMain.handle('settings:get', () => {
 ipcMain.handle('settings:update', (event, settings) => {
   const oldSettings = getSettings();
   const updated = updateSettings(settings);
-  
+
   // If sync folder changed, restart folder watcher and update peer server
   if (oldSettings.syncFolder !== settings.syncFolder) {
     setupFolderWatcher(settings.syncFolder);
@@ -873,14 +884,14 @@ ipcMain.handle('settings:update', (event, settings) => {
       peerServer.setSyncFolder(settings.syncFolder);
     }
   }
-  
+
   // Update storage limits on peer server
   if (peerServer) {
     const maxStorageBytes = settings.maxStorageSize ? settings.maxStorageSize * 1024 * 1024 * 1024 : null;
     const maxFileBytes = settings.maxFileSize ? settings.maxFileSize * 1024 * 1024 * 1024 : null;
     peerServer.setStorageLimits(maxStorageBytes, maxFileBytes);
   }
-  
+
   return updated;
 });
 
@@ -888,7 +899,7 @@ ipcMain.handle('settings:update', (event, settings) => {
 ipcMain.handle('settings:getStorageStats', async () => {
   const settings = getSettings();
   const syncFolder = settings.syncFolder;
-  
+
   if (!syncFolder || !fs.existsSync(syncFolder)) {
     return {
       folderSize: 0,
@@ -898,7 +909,7 @@ ipcMain.handle('settings:getStorageStats', async () => {
       filesByType: {},
     };
   }
-  
+
   // Get file breakdown by type
   const filesByType = {
     images: { size: 0, count: 0, color: '#4CAF50' },
@@ -908,15 +919,15 @@ ipcMain.handle('settings:getStorageStats', async () => {
     archives: { size: 0, count: 0, color: '#795548' },
     other: { size: 0, count: 0, color: '#607D8B' },
   };
-  
+
   const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
   const videoExts = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'];
   const audioExts = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus'];
   const docExts = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'];
   const archiveExts = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'];
-  
+
   let folderSize = 0;
-  
+
   function scanFolder(dirPath) {
     try {
       const entries = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -928,7 +939,7 @@ ipcMain.handle('settings:getStorageStats', async () => {
           const stats = fs.statSync(fullPath);
           const ext = path.extname(entry.name).slice(1).toLowerCase();
           folderSize += stats.size;
-          
+
           if (imageExts.includes(ext)) {
             filesByType.images.size += stats.size;
             filesByType.images.count++;
@@ -954,13 +965,13 @@ ipcMain.handle('settings:getStorageStats', async () => {
       console.error(`[MAIN] ERROR: Failed to scan folder ${dirPath}:`, e);
     }
   }
-  
+
   scanFolder(syncFolder);
-  
+
   // Get disk space info
   let diskTotal = 0;
   let diskFree = 0;
-  
+
   try {
     // Use Node.js to get disk info (Windows-specific)
     const { execSync } = require('child_process');
@@ -979,7 +990,7 @@ ipcMain.handle('settings:getStorageStats', async () => {
   } catch (e) {
     console.error('[MAIN] ERROR: Failed to get disk info:', e);
   }
-  
+
   return {
     folderSize,
     diskTotal,
