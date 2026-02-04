@@ -162,6 +162,7 @@ src/
 - Auto-hide overlay after file drop (1s delay)
 - File notification overlays with accept/decline
 - Auto-start on Windows boot (minimized)
+- **Auto-update from GitHub releases**
 - Dark/light themes
 - File thumbnails
 - Peer status indicators
