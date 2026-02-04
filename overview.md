@@ -123,7 +123,9 @@ src/
 │   ├── peerServer.js  # TCP P2P server
 │   ├── store.js       # Persistent storage
 │   ├── tailscale.js   # Tailscale integration
-│   └── preload.js     # IPC bridge
+│   ├── preload.js     # IPC bridge
+│   ├── overlay.html   # Global drop overlay
+│   └── notification-overlay.html  # File notifications
 └── renderer/          # React UI
     ├── App.jsx
     ├── components/    # TitleBar, Sidebar
@@ -134,6 +136,14 @@ src/
 ### Commands
 - `npm run dev` — Start dev server + Electron
 - `npm run build` — Build for production
+- `npx electron-builder --win --x64` — Build Windows installer
+
+### Installation & Updates
+- NSIS installer automatically replaces old versions
+- Settings stored in `%APPDATA%\poly-hub\` (preserved on update)
+- Sync folder in `Documents\PolyHub\` (preserved on update)
+- Auto-start on Windows boot (hidden/minimized)
+- Desktop and Start Menu shortcuts created
 
 ### Adding IPC Handler
 1. Define in `main.js`: `ipcMain.handle('action', async (e, arg) => {})`
@@ -148,10 +158,14 @@ src/
 - Drag-and-drop interface
 - Storage limits (5GB default)
 - Global drop overlay (Alt+D, ESC to close)
+- Smooth liquid animations on overlay
+- Auto-hide overlay after file drop (1s delay)
 - File notification overlays with accept/decline
+- Auto-start on Windows boot (minimized)
 - Dark/light themes
 - File thumbnails
 - Peer status indicators
+- Auto-update installer (preserves settings)
 
 ### Planned
 - File notifications with accept/decline
@@ -164,6 +178,8 @@ src/
 - **Files not transferring:** Check Tailscale connection, firewall (ports 47777/47778)
 - **Thumbnails missing:** Verify file path, check CSP allows `polyhub-file:`
 - **Peers not connecting:** Verify Tailscale running, correct IP (100.x.x.x)
+- **Overlay not appearing:** Check global shortcut (Alt+D), restart app
+- **Auto-start not working:** Reinstall with NSIS installer
 
 ---
-*Version: 1.0.0 | Last Updated: February 2026*
+*Version: 4.0.1 | Last Updated: February 2026*
