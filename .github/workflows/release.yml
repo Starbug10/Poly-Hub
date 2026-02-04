@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: windows-latest
@@ -23,16 +26,23 @@ jobs:
 
       - name: Build application
         run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Package application
-        run: npx electron-builder --win --x64
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-installers
+          path: |
+            dist-electron/*.exe
+            dist-electron/*.blockmap
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             dist-electron/*.exe
-            dist-electron/*.zip
+            dist-electron/*.blockmap
           draft: false
           prerelease: false
         env:
