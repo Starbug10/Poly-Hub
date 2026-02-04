@@ -21,7 +21,6 @@
             justify-content: center;
             height: 100vh;
             overflow: hidden;
-            -webkit-app-region: drag;
         }
 
         .drop-zone {
@@ -34,7 +33,6 @@
             justify-content: center;
             gap: 12px;
             transition: all 0.2s ease;
-            -webkit-app-region: no-drag;
         }
 
         .drop-zone.drag-over {
@@ -60,41 +58,19 @@
             color: #888;
             letter-spacing: 0.05em;
         }
-
-        .close-btn {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: transparent;
-            border: 2px solid #3d3d3d;
-            color: #888;
-            width: 32px;
-            height: 32px;
-            cursor: pointer;
-            font-size: 18px;
-            transition: all 0.15s ease;
-            -webkit-app-region: no-drag;
-        }
-
-        .close-btn:hover {
-            border-color: #ff6700;
-            color: #ff6700;
-        }
     </style>
 </head>
 
 <body>
-    <button class="close-btn" id="closeBtn">×</button>
     <div class="drop-zone" id="dropZone">
         <div class="drop-icon">↓</div>
         <div class="drop-text">Drop Files Here</div>
-        <div class="drop-hint">Alt+D to close</div>
+        <div class="drop-hint">Alt+D or ESC to close</div>
     </div>
 
     <script>
         const { ipcRenderer } = require('electron');
         const dropZone = document.getElementById('dropZone');
-        const closeBtn = document.getElementById('closeBtn');
 
         // Prevent default drag behaviors
         document.addEventListener('dragover', (e) => {
@@ -135,14 +111,10 @@
             }
         });
 
-        // Close button
-        closeBtn.addEventListener('click', () => {
-            ipcRenderer.send('overlay:close');
-        });
-
         // ESC key to close
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                console.log('ESC pressed, closing overlay');
                 ipcRenderer.send('overlay:close');
             }
         });
@@ -151,6 +123,9 @@
         ipcRenderer.on('overlay:hide', () => {
             window.close();
         });
+
+        // Focus the window to ensure it receives keyboard events
+        window.focus();
     </script>
 </body>
 

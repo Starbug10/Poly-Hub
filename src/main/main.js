@@ -79,8 +79,31 @@ function createOverlayWindow() {
 
   overlayWindow.loadFile(path.join(__dirname, 'overlay.html'));
 
+  overlayWindow.once('ready-to-show', () => {
+    overlayWindow.show();
+    overlayWindow.focus();
+
+    // Register ESC key handler for this window
+    overlayWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'Escape' && input.type === 'keyDown') {
+        console.log('[MAIN] ESC key detected in overlay, closing...');
+        if (overlayWindow && !overlayWindow.isDestroyed()) {
+          overlayWindow.close();
+          overlayWindow = null;
+        }
+      }
+    });
+  });
+
   overlayWindow.on('closed', () => {
     overlayWindow = null;
+  });
+
+  overlayWindow.on('blur', () => {
+    // Keep focus on overlay so keyboard events work
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.focus();
+    }
   });
 
   console.log('[MAIN] Overlay window created');
@@ -514,9 +537,13 @@ ipcMain.handle('window:close', () => mainWindow.close());
 
 // Overlay window controls
 ipcMain.on('overlay:close', () => {
+  console.log('[MAIN] Overlay close requested');
   if (overlayWindow && !overlayWindow.isDestroyed()) {
+    console.log('[MAIN] Closing overlay window');
     overlayWindow.close();
     overlayWindow = null;
+  } else {
+    console.log('[MAIN] Overlay window not found or already destroyed');
   }
 });
 
