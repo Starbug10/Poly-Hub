@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';">
+    <title>File Notification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        .notification {
+            background: rgba(26, 26, 26, 0.95);
+            border: 2px solid #ff6700;
+            padding: 16px;
+            min-width: 320px;
+            max-width: 400px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.closing {
+            animation: slideOut 0.3s ease-in forwards;
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .notif-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .notif-title {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #ff6700;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: #ff6700;
+        }
+
+        .notif-body {
+            margin-bottom: 12px;
+        }
+
+        .file-name {
+            font-size: 14px;
+            color: #e8e8e8;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+
+        .file-info {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .warning {
+            font-size: 11px;
+            color: #ff6700;
+            margin-top: 8px;
+            padding: 8px;
+            border: 1px solid #ff6700;
+            background: rgba(255, 103, 0, 0.1);
+        }
+
+        .notif-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border: 2px solid;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+
+        .btn-accept {
+            border-color: #ff6700;
+            color: #ff6700;
+        }
+
+        .btn-accept:hover {
+            background: #ff6700;
+            color: #1a1a1a;
+        }
+
+        .btn-decline {
+            border-color: #3d3d3d;
+            color: #888;
+        }
+
+        .btn-decline:hover {
+            border-color: #888;
+            color: #e8e8e8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="notification" id="notification">
+        <div class="notif-header">
+            <div class="notif-title">Incoming File</div>
+            <button class="close-btn" id="closeBtn">×</button>
+        </div>
+        <div class="notif-body">
+            <div class="file-name" id="fileName">Loading...</div>
+            <div class="file-info" id="fileInfo">From: ...</div>
+            <div class="warning" id="warning" style="display: none;"></div>
+        </div>
+        <div class="notif-actions">
+            <button class="btn btn-accept" id="acceptBtn">Accept</button>
+            <button class="btn btn-decline" id="declineBtn">Decline</button>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        const notification = document.getElementById('notification');
+        const closeBtn = document.getElementById('closeBtn');
+        const acceptBtn = document.getElementById('acceptBtn');
+        const declineBtn = document.getElementById('declineBtn');
+        const fileName = document.getElementById('fileName');
+        const fileInfo = document.getElementById('fileInfo');
+        const warning = document.getElementById('warning');
+
+        let fileData = null;
+
+        // Receive file data
+        ipcRenderer.on('notification:show', (event, data) => {
+            fileData = data;
+            fileName.textContent = data.file.name;
+
+            const sizeMB = (data.file.size / (1024 * 1024)).toFixed(2);
+            fileInfo.textContent = `From: ${data.from.name} | Size: ${sizeMB} MB`;
+
+            if (data.exceedsLimit) {
+                warning.style.display = 'block';
+                warning.textContent = `⚠ File exceeds ${data.limitType} limit (${data.limitValue} GB)`;
+            }
+        });
+
+        function closeNotification() {
+            notification.classList.add('closing');
+            setTimeout(() => {
+                window.close();
+            }, 300);
+        }
+
+        closeBtn.addEventListener('click', () => {
+            ipcRenderer.send('notification:close', fileData);
+            closeNotification();
+        });
+
+        acceptBtn.addEventListener('click', () => {
+            ipcRenderer.send('notification:accept', fileData);
+            closeNotification();
+        });
+
+        declineBtn.addEventListener('click', () => {
+            ipcRenderer.send('notification:decline', fileData);
+            closeNotification();
+        });
+
+        // Auto-close after 30 seconds if no action
+        setTimeout(() => {
+            if (!notification.classList.contains('closing')) {
+                ipcRenderer.send('notification:timeout', fileData);
+                closeNotification();
+            }
+        }, 30000);
+    </script>
+</body>
+
+</html>

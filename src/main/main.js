@@ -9,6 +9,7 @@ const { PeerServer, sendPairRequest, announceFile, announceFileDelete, announceP
 
 let mainWindow;
 let overlayWindow = null;
+let notificationWindows = []; // Track multiple notification windows
 let peerServer;
 let folderWatcher = null;
 let receivingFiles = new Set(); // Track files currently being received to prevent duplicates
@@ -95,6 +96,52 @@ function toggleOverlay() {
   }
 }
 
+// Create notification window for incoming files
+function createNotificationWindow(fileData) {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  const notifWidth = 400;
+  const notifHeight = 200;
+  const notifX = width - notifWidth - 20;
+  const notifY = 20 + (notificationWindows.length * (notifHeight + 10)); // Stack notifications
+
+  const notifWindow = new BrowserWindow({
+    width: notifWidth,
+    height: notifHeight,
+    x: notifX,
+    y: notifY,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  notifWindow.loadFile(path.join(__dirname, 'notification-overlay.html'));
+
+  notifWindow.once('ready-to-show', () => {
+    notifWindow.webContents.send('notification:show', fileData);
+  });
+
+  notifWindow.on('closed', () => {
+    const index = notificationWindows.indexOf(notifWindow);
+    if (index > -1) {
+      notificationWindows.splice(index, 1);
+    }
+  });
+
+  notificationWindows.push(notifWindow);
+  console.log('[MAIN] Notification window created');
+}
+
 // Start peer server for incoming connections
 async function startPeerServer() {
   peerServer = new PeerServer();
@@ -155,17 +202,55 @@ async function startPeerServer() {
       from: data.from,
       receivedAt: Date.now(),
     };
-    addSharedFile(file);
-    mainWindow.webContents.send('file:received', file);
 
-    // Show notification
+    // Check file size limits
     const settings = getSettings();
-    if (settings.notifications) {
-      const { Notification } = require('electron');
-      new Notification({
-        title: 'File Received',
-        body: `${data.from.name} shared ${data.file.name}`,
-      }).show();
+    const fileSizeGB = data.file.size / (1024 * 1024 * 1024);
+    let exceedsLimit = false;
+    let limitType = '';
+    let limitValue = 0;
+
+    if (settings.maxFileSize && fileSizeGB > settings.maxFileSize) {
+      exceedsLimit = true;
+      limitType = 'file size';
+      limitValue = settings.maxFileSize;
+    }
+
+    if (settings.maxStorageSize) {
+      // Calculate current storage usage
+      const sharedFiles = getSharedFiles();
+      const currentUsageBytes = sharedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+      const currentUsageGB = currentUsageBytes / (1024 * 1024 * 1024);
+
+      if (currentUsageGB + fileSizeGB > settings.maxStorageSize) {
+        exceedsLimit = true;
+        limitType = 'storage';
+        limitValue = settings.maxStorageSize;
+      }
+    }
+
+    // Show notification window if file exceeds limits or notifications enabled
+    if (settings.notifications && exceedsLimit) {
+      createNotificationWindow({
+        file: data.file,
+        from: data.from,
+        exceedsLimit,
+        limitType,
+        limitValue,
+      });
+    } else {
+      // Auto-accept if within limits
+      addSharedFile(file);
+      mainWindow.webContents.send('file:received', file);
+
+      // Show system notification
+      if (settings.notifications) {
+        const { Notification } = require('electron');
+        new Notification({
+          title: 'File Received',
+          body: `${data.from.name} shared ${data.file.name}`,
+        }).show();
+      }
     }
   });
 
@@ -480,6 +565,67 @@ ipcMain.on('overlay:files-dropped', async (event, filePaths) => {
     // Notify main window to update gallery
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('files:shared', result);
+    }
+  }
+});
+
+// Notification window handlers
+ipcMain.on('notification:accept', (event, data) => {
+  console.log('[MAIN] File accepted:', data.file.name);
+
+  const file = {
+    ...data.file,
+    from: data.from,
+    receivedAt: Date.now(),
+  };
+
+  addSharedFile(file);
+  mainWindow.webContents.send('file:received', file);
+
+  const settings = getSettings();
+  if (settings.notifications) {
+    const { Notification } = require('electron');
+    new Notification({
+      title: 'File Accepted',
+      body: `${data.file.name} added to gallery`,
+    }).show();
+  }
+});
+
+ipcMain.on('notification:decline', (event, data) => {
+  console.log('[MAIN] File declined:', data.file.name);
+
+  // Delete the file from disk
+  if (data.file.path && fs.existsSync(data.file.path)) {
+    try {
+      fs.unlinkSync(data.file.path);
+      console.log('[MAIN] Declined file deleted from disk');
+    } catch (err) {
+      console.error('[MAIN] Error deleting declined file:', err);
+    }
+  }
+});
+
+ipcMain.on('notification:close', (event, data) => {
+  console.log('[MAIN] Notification closed without action');
+  // Treat as decline
+  if (data && data.file && data.file.path && fs.existsSync(data.file.path)) {
+    try {
+      fs.unlinkSync(data.file.path);
+    } catch (err) {
+      console.error('[MAIN] Error deleting file:', err);
+    }
+  }
+});
+
+ipcMain.on('notification:timeout', (event, data) => {
+  console.log('[MAIN] Notification timed out');
+  // Treat as decline
+  if (data && data.file && data.file.path && fs.existsSync(data.file.path)) {
+    try {
+      fs.unlinkSync(data.file.path);
+    } catch (err) {
+      console.error('[MAIN] Error deleting file:', err);
     }
   }
 });

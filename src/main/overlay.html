@@ -14,7 +14,7 @@
 
         body {
             font-family: 'JetBrains Mono', 'Courier New', monospace;
-            background: rgba(26, 26, 26, 0.95);
+            background: rgba(26, 26, 26, 0.85);
             color: #e8e8e8;
             display: flex;
             align-items: center;
@@ -138,6 +138,13 @@
         // Close button
         closeBtn.addEventListener('click', () => {
             ipcRenderer.send('overlay:close');
+        });
+
+        // ESC key to close
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                ipcRenderer.send('overlay:close');
+            }
         });
 
         // Listen for close command
