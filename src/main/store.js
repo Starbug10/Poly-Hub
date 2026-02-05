@@ -6,6 +6,17 @@ const store = new Store({
     profile: null,
     peers: [],
     sharedFiles: [],
+    stats: {
+      totals: {
+        sentFiles: 0,
+        sentBytes: 0,
+        receivedFiles: 0,
+        receivedBytes: 0,
+      },
+      // Keyed by local day in YYYY-MM-DD.
+      byDay: {},
+      updatedAt: null,
+    },
     settings: {
       syncFolder: null,
       maxFileSize: 5, // Default 5GB per file (null = unlimited)
@@ -16,6 +27,7 @@ const store = new Store({
       accentColor: '#ff6700', // Safety Orange (default)
       compactSidebar: false, // Icon-only sidebar mode
       overlayShortcut: 'Alt+D', // Global shortcut for overlay window
+      hasSeenTrayNotification: false, // Show tray notification on first minimize
       _migrated: false, // Track if user has been migrated to 5GB defaults
     },
   },
@@ -153,6 +165,71 @@ function updateSettings(settings) {
 }
 
 /**
+ * Stats
+ */
+
+function formatLocalDayKey(timestamp) {
+  const d = new Date(timestamp);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getStats() {
+  return store.get('stats');
+}
+
+/**
+ * Record a completed transfer (sent or received).
+ *
+ * @param {{direction: 'sent'|'received', bytes: number, timestamp?: number}} entry
+ */
+function recordTransferStat(entry) {
+  const timestamp = entry.timestamp || Date.now();
+  const dayKey = formatLocalDayKey(timestamp);
+
+  const current = getStats() || {
+    totals: { sentFiles: 0, sentBytes: 0, receivedFiles: 0, receivedBytes: 0 },
+    byDay: {},
+    updatedAt: null,
+  };
+
+  const stats = {
+    ...current,
+    totals: { ...current.totals },
+    byDay: { ...(current.byDay || {}) },
+  };
+
+  const bytes = Math.max(0, Number(entry.bytes) || 0);
+
+  const day = stats.byDay[dayKey] || {
+    sentFiles: 0,
+    sentBytes: 0,
+    receivedFiles: 0,
+    receivedBytes: 0,
+  };
+
+  if (entry.direction === 'sent') {
+    stats.totals.sentFiles += 1;
+    stats.totals.sentBytes += bytes;
+    day.sentFiles += 1;
+    day.sentBytes += bytes;
+  } else if (entry.direction === 'received') {
+    stats.totals.receivedFiles += 1;
+    stats.totals.receivedBytes += bytes;
+    day.receivedFiles += 1;
+    day.receivedBytes += bytes;
+  }
+
+  stats.byDay[dayKey] = day;
+  stats.updatedAt = Date.now();
+
+  store.set('stats', stats);
+  return stats;
+}
+
+/**
  * Get shared files
  */
 function getSharedFiles() {
@@ -201,6 +278,8 @@ module.exports = {
   updatePeer,
   getSettings,
   updateSettings,
+  getStats,
+  recordTransferStat,
   getSharedFiles,
   addSharedFile,
   removeSharedFile,

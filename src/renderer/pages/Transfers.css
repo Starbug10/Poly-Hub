@@ -1,0 +1,255 @@
+/* Transfers Page */
+
+.transfers {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--space-6);
+}
+
+.transfers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: var(--border);
+  padding-bottom: var(--space-5);
+}
+
+.transfers-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.transfers-title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.transfers-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.transfers-header-right {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.transfers-status {
+  padding: var(--space-3);
+  border: var(--border);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.transfers-status-success {
+  color: #4ade80;
+  border-color: #4ade80;
+  background-color: rgba(74, 222, 128, 0.1);
+}
+
+.transfers-status-error {
+  color: #f87171;
+  border-color: #f87171;
+  background-color: rgba(248, 113, 113, 0.1);
+}
+
+.rounded-corners .transfers-status {
+  border-radius: var(--border-radius-sm);
+}
+
+.transfers-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.transfers-empty-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.transfers-empty-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+}
+
+.transfers-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
+  overflow-y: auto;
+}
+
+.transfer-card {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  border: var(--border);
+  background-color: var(--color-surface);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.rounded-corners .transfer-card {
+  border-radius: var(--border-radius-md);
+}
+
+.transfer-card:hover {
+  border-color: var(--color-accent-dim);
+  background-color: var(--color-surface-elevated);
+}
+
+.transfer-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.transfer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.transfer-name {
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-meta {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.transfer-direction {
+  font-weight: 500;
+}
+
+.transfer-peer {
+  color: var(--color-text);
+}
+
+.transfer-dot {
+  color: var(--color-text-dim);
+}
+
+.transfer-size {
+  color: var(--color-text-dim);
+}
+
+.transfer-progress {
+  width: 100%;
+  height: 4px;
+  background-color: var(--color-bg);
+  border: var(--border);
+  overflow: hidden;
+}
+
+.rounded-corners .transfer-progress {
+  border-radius: 2px;
+}
+
+.transfer-progress-bar {
+  height: 100%;
+  background-color: var(--color-accent);
+  transition: width 0.2s ease;
+}
+
+.transfer-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.transfer-actions button {
+  min-width: 80px;
+}
+
+.transfer-actions-hint {
+  color: var(--color-text-dim);
+  font-size: var(--font-size-sm);
+}
+
+.badge {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rounded-corners .badge {
+  border-radius: var(--border-radius-sm);
+}
+
+.badge-sending {
+  color: #60a5fa;
+  border-color: #60a5fa;
+  background-color: rgba(96, 165, 250, 0.1);
+}
+
+.badge-receiving {
+  color: #a78bfa;
+  border-color: #a78bfa;
+  background-color: rgba(167, 139, 250, 0.1);
+}
+
+.badge-paused {
+  color: #fbbf24;
+  border-color: #fbbf24;
+  background-color: rgba(251, 191, 36, 0.1);
+}
+
+.badge-completed {
+  color: #4ade80;
+  border-color: #4ade80;
+  background-color: rgba(74, 222, 128, 0.1);
+}
+
+.badge-cancelled {
+  color: #f87171;
+  border-color: #f87171;
+  background-color: rgba(248, 113, 113, 0.1);
+}
+
+.badge-failed {
+  color: #f87171;
+  border-color: #f87171;
+  background-color: rgba(248, 113, 113, 0.1);
+}
+
+button.danger {
+  background-color: transparent;
+  border: var(--border);
+  color: #f87171;
+}
+
+button.danger:hover {
+  background-color: rgba(248, 113, 113, 0.1);
+  border-color: #f87171;
+}

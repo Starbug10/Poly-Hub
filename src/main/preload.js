@@ -41,6 +41,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFile: (filePath) => ipcRenderer.invoke('files:open', filePath),
   getThumbnail: (filePath) => ipcRenderer.invoke('files:getThumbnail', filePath),
 
+  // Transfers
+  getActiveTransfers: () => ipcRenderer.invoke('transfers:getActive'),
+  pauseTransfer: (transferId) => ipcRenderer.invoke('transfers:pause', transferId),
+  resumeTransfer: (transferId) => ipcRenderer.invoke('transfers:resume', transferId),
+  cancelTransfer: (transferId) => ipcRenderer.invoke('transfers:cancel', transferId),
+
+  // Clipboard
+  shareClipboard: () => ipcRenderer.invoke('clipboard:share'),
+
+  // Statistics
+  getStats: () => ipcRenderer.invoke('stats:get'),
+
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
@@ -67,6 +79,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onFileAutoAdded: (callback) => {
     ipcRenderer.on('file:auto-added', (event, file) => callback(file));
+  },
+  onTransferUpdated: (callback) => {
+    ipcRenderer.on('transfer:updated', (event, transfer) => callback(transfer));
+  },
+  onTransferRemoved: (callback) => {
+    ipcRenderer.on('transfer:removed', (event, transferId) => callback(transferId));
+  },
+  onNavigate: (callback) => {
+    ipcRenderer.on('navigate', (event, path) => callback(path));
   },
   removeAllListeners: (channel) => {
     ipcRenderer.removeAllListeners(channel);

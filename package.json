@@ -5,6 +5,7 @@
   "main": "src/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:5173 && npm run dev:main\"",
+    "dev:restart": "pwsh -File scripts/dev-restart.ps1",
     "dev:main": "electron .",
     "dev:renderer": "vite",
     "build": "vite build && electron-builder",

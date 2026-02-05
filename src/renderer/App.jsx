@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import TitleBar from './components/TitleBar';
 import Sidebar from './components/Sidebar';
 import Onboarding from './pages/Onboarding';
 import Gallery from './pages/Gallery';
+import Transfers from './pages/Transfers';
+import Statistics from './pages/Statistics';
 import Settings from './pages/Settings';
 import './styles/app.css';
 
 function App() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tailscaleStatus, setTailscaleStatus] = useState(null);
@@ -30,6 +33,11 @@ function App() {
   };
 
   useEffect(() => {
+    // Listen for tray navigation events
+    window.electronAPI.onNavigate((path) => {
+      navigate(path);
+    });
+
     async function init() {
       // Check Tailscale status
       const status = await window.electronAPI.getTailscaleStatus();
@@ -73,7 +81,11 @@ function App() {
       setLoading(false);
     }
     init();
-  }, []);
+
+    return () => {
+      window.electronAPI.removeAllListeners('navigate');
+    };
+  }, [navigate]);
 
   const handleProfileComplete = (newProfile) => {
     setProfile(newProfile);
@@ -147,6 +159,8 @@ function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/gallery" replace />} />
                 <Route path="/gallery" element={<Gallery tailscaleOffline={tailscaleOffline} />} />
+                <Route path="/transfers" element={<Transfers />} />
+                <Route path="/statistics" element={<Statistics />} />
                 <Route
                   path="/settings"
                   element={

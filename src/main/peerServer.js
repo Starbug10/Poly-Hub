@@ -82,7 +82,11 @@ class PeerServer extends EventEmitter {
       });
 
       this.server.on('error', (err) => {
-        console.error('Peer server error:', err);
+        console.error('[PEER-SERVER] Error:', err);
+        if (err.code === 'EADDRINUSE') {
+          console.error(`[PEER-SERVER] Port ${POLY_HUB_PORT} is already in use. Another instance may be running.`);
+          console.error('[PEER-SERVER] Please close other instances or wait a moment for the port to free up.');
+        }
         this.emit('error', err);
         reject(err);
       });
@@ -105,7 +109,11 @@ class PeerServer extends EventEmitter {
       });
 
       this.fileServer.on('error', (err) => {
-        console.error('File server error:', err);
+        console.error('[FILE-SERVER] Error:', err);
+        if (err.code === 'EADDRINUSE') {
+          console.error(`[FILE-SERVER] Port ${FILE_TRANSFER_PORT} is already in use.`);
+        }
+        reject(err);
       });
 
       this.fileServer.listen(FILE_TRANSFER_PORT, '0.0.0.0', () => {
@@ -128,8 +136,8 @@ class PeerServer extends EventEmitter {
     let bytesReceived = 0;
     let lastProgressLog = 0;
 
-    // Increase socket timeout for large files
-    socket.setTimeout(600000); // 10 minutes
+    // Disable socket timeout so transfers can be paused for long periods.
+    socket.setTimeout(0);
 
     socket.on('data', (chunk) => {
       if (!headerReceived) {
@@ -380,10 +388,33 @@ class PeerServer extends EventEmitter {
    * Stop the server
    */
   stop() {
-    if (this.server) {
-      this.server.close();
-      this.server = null;
-    }
+    return new Promise((resolve) => {
+      let closed = 0;
+      const checkDone = () => {
+        closed++;
+        if (closed >= 2) resolve();
+      };
+
+      if (this.server) {
+        this.server.close(() => {
+          console.log('[PEER-SERVER] Closed');
+          this.server = null;
+          checkDone();
+        });
+      } else {
+        checkDone();
+      }
+
+      if (this.fileServer) {
+        this.fileServer.close(() => {
+          console.log('[FILE-SERVER] Closed');
+          this.fileServer = null;
+          checkDone();
+        });
+      } else {
+        checkDone();
+      }
+    });
   }
 }
 
@@ -437,6 +468,199 @@ function sendPairRequest(peerIP, profile) {
 }
 
 /**
+ * Create a controllable file transfer task (pause/resume/cancel).
+ *
+ * NOTE: "Pause" works by pausing the local read stream. This intentionally disables
+ * socket timeouts so the transfer can remain paused for long periods.
+ *
+ * @param {string} peerIP - The Tailscale IP of the peer
+ * @param {object} file - File info {id, name, size, type, path}
+ * @param {object} from - Our profile {name, ip}
+ * @param {(progress: number, bytesSent: number, totalBytes: number) => void} [onProgress]
+ */
+function createSendFileTask(peerIP, file, from, onProgress) {
+  // Check if file exists
+  if (!fs.existsSync(file.path)) {
+    return {
+      promise: Promise.resolve({ success: false, error: 'File not found' }),
+      pause: () => ({ success: false, error: 'File not found' }),
+      resume: () => ({ success: false, error: 'File not found' }),
+      cancel: () => ({ success: false, error: 'File not found' }),
+      getState: () => ({ status: 'failed', bytesSent: 0 }),
+    };
+  }
+
+  const stats = fs.statSync(file.path);
+  const fileSize = stats.size;
+  console.log(`[FILE-TRANSFER] Preparing to send ${file.name} (${fileSize} bytes) to ${peerIP}`);
+
+  const socket = new net.Socket();
+  // Disable timeouts to support long pauses.
+  socket.setTimeout(0);
+
+  let fileStream = null;
+  let bytesSent = 0;
+  let status = 'connecting'; // connecting | sending | paused | cancelled | completed | failed
+  let settled = false;
+
+  let resolvePromise;
+  const promise = new Promise((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  const settle = (result) => {
+    if (settled) return;
+    settled = true;
+    resolvePromise(result);
+  };
+
+  const pause = () => {
+    if (!fileStream) return { success: false, error: 'Transfer not started' };
+    if (status === 'paused') return { success: true };
+    try {
+      fileStream.pause();
+      status = 'paused';
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  };
+
+  const resume = () => {
+    if (!fileStream) return { success: false, error: 'Transfer not started' };
+    if (status !== 'paused') return { success: true };
+    try {
+      fileStream.resume();
+      status = 'sending';
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  };
+
+  const cancel = () => {
+    if (status === 'cancelled' || status === 'completed' || status === 'failed') {
+      return { success: true };
+    }
+
+    status = 'cancelled';
+
+    try {
+      if (fileStream && !fileStream.destroyed) {
+        fileStream.destroy(new Error('Cancelled'));
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      socket.destroy();
+    } catch {
+      // ignore
+    }
+
+    settle({ success: false, error: 'Cancelled' });
+    return { success: true };
+  };
+
+  const getState = () => ({ status, bytesSent, totalBytes: fileSize });
+
+  socket.connect(FILE_TRANSFER_PORT, peerIP, () => {
+    if (status === 'cancelled') {
+      return;
+    }
+
+    status = 'sending';
+    console.log(`[FILE-TRANSFER] Connected to ${peerIP}, sending ${file.name}`);
+
+    // Create header with file info
+    const header = JSON.stringify({
+      id: file.id,
+      name: file.name,
+      size: fileSize,
+      type: file.type,
+      sharedBy: file.sharedBy,
+      sharedAt: file.sharedAt,
+      from: from,
+      // Include relative path for folder structure
+      relativePath: file.relativePath || null,
+      folderName: file.folderName || null,
+    });
+    const headerBuffer = Buffer.from(header);
+
+    // Create length prefix (4 bytes)
+    const lengthBuffer = Buffer.alloc(4);
+    lengthBuffer.writeUInt32BE(headerBuffer.length, 0);
+
+    // Send header first
+    socket.write(lengthBuffer);
+    socket.write(headerBuffer);
+
+    // Stream the file instead of loading entirely into memory
+    fileStream = fs.createReadStream(file.path, { highWaterMark: 64 * 1024 }); // 64KB chunks
+
+    fileStream.on('data', (chunk) => {
+      bytesSent += chunk.length;
+      const progress = Math.round((bytesSent / fileSize) * 100);
+      if (onProgress) {
+        onProgress(progress, bytesSent, fileSize);
+      }
+      // Log progress every 10%
+      if (bytesSent === chunk.length || progress % 10 === 0) {
+        console.log(`[FILE-TRANSFER] Sending ${file.name}: ${progress}% (${bytesSent}/${fileSize})`);
+      }
+    });
+
+    fileStream.on('error', (err) => {
+      if (status === 'cancelled') {
+        return;
+      }
+      status = 'failed';
+      console.error(`[FILE-TRANSFER] ERROR: Failed to read file ${file.name}:`, err);
+      socket.destroy();
+      settle({ success: false, error: 'Failed to read file' });
+    });
+
+    fileStream.on('end', () => {
+      console.log(`[FILE-TRANSFER] File stream complete for ${file.name}`);
+    });
+
+    // Pipe file stream to socket
+    fileStream.pipe(socket, { end: true });
+  });
+
+  socket.on('close', () => {
+    if (settled) return;
+
+    if (status === 'cancelled') {
+      settle({ success: false, error: 'Cancelled' });
+      return;
+    }
+
+    if (bytesSent === fileSize) {
+      status = 'completed';
+      console.log(`[FILE-TRANSFER] Successfully sent ${file.name} (${bytesSent} bytes) to ${peerIP}`);
+      settle({ success: true });
+    } else {
+      status = 'failed';
+      console.error(`[FILE-TRANSFER] ERROR: Incomplete transfer of ${file.name} (${bytesSent}/${fileSize})`);
+      settle({ success: false, error: 'Incomplete transfer' });
+    }
+  });
+
+  socket.on('error', (err) => {
+    if (status === 'cancelled') {
+      return;
+    }
+    status = 'failed';
+    console.error(`[FILE-TRANSFER] ERROR: Failed to send ${file.name} to ${peerIP}:`, err.message);
+    settle({ success: false, error: err.message });
+  });
+
+  return { promise, pause, resume, cancel, getState };
+}
+
+/**
  * Send a file to a peer (actual file transfer with streaming for large files)
  * @param {string} peerIP - The Tailscale IP of the peer
  * @param {object} file - File info {id, name, size, type, path}
@@ -444,102 +668,8 @@ function sendPairRequest(peerIP, profile) {
  * @param {function} onProgress - Optional callback for progress updates
  */
 function sendFile(peerIP, file, from, onProgress) {
-  return new Promise((resolve) => {
-    // Check if file exists
-    if (!fs.existsSync(file.path)) {
-      console.error(`[FILE-TRANSFER] ERROR: File not found: ${file.path}`);
-      resolve({ success: false, error: 'File not found' });
-      return;
-    }
-
-    const stats = fs.statSync(file.path);
-    const fileSize = stats.size;
-    console.log(`[FILE-TRANSFER] Preparing to send ${file.name} (${fileSize} bytes) to ${peerIP}`);
-
-    const socket = new net.Socket();
-    
-    // Longer timeout for large files (5 minutes + 1 min per GB)
-    const timeoutMs = 300000 + Math.ceil(fileSize / (1024 * 1024 * 1024)) * 60000;
-    const timeout = setTimeout(() => {
-      console.error(`[FILE-TRANSFER] ERROR: Timeout sending ${file.name} to ${peerIP}`);
-      socket.destroy();
-      resolve({ success: false, error: 'Connection timeout' });
-    }, timeoutMs);
-
-    socket.connect(FILE_TRANSFER_PORT, peerIP, () => {
-      console.log(`[FILE-TRANSFER] Connected to ${peerIP}, sending ${file.name}`);
-
-      // Create header with file info
-      const header = JSON.stringify({
-        id: file.id,
-        name: file.name,
-        size: fileSize,
-        type: file.type,
-        sharedBy: file.sharedBy,
-        sharedAt: file.sharedAt,
-        from: from,
-        // Include relative path for folder structure
-        relativePath: file.relativePath || null,
-        folderName: file.folderName || null,
-      });
-      const headerBuffer = Buffer.from(header);
-      
-      // Create length prefix (4 bytes)
-      const lengthBuffer = Buffer.alloc(4);
-      lengthBuffer.writeUInt32BE(headerBuffer.length, 0);
-      
-      // Send header first
-      socket.write(lengthBuffer);
-      socket.write(headerBuffer);
-      
-      // Stream the file instead of loading entirely into memory
-      const fileStream = fs.createReadStream(file.path, { highWaterMark: 64 * 1024 }); // 64KB chunks
-      let bytesSent = 0;
-      
-      fileStream.on('data', (chunk) => {
-        bytesSent += chunk.length;
-        const progress = Math.round((bytesSent / fileSize) * 100);
-        if (onProgress) {
-          onProgress(progress, bytesSent, fileSize);
-        }
-        // Log progress every 10%
-        if (bytesSent === chunk.length || progress % 10 === 0) {
-          console.log(`[FILE-TRANSFER] Sending ${file.name}: ${progress}% (${bytesSent}/${fileSize})`);
-        }
-      });
-      
-      fileStream.on('error', (err) => {
-        clearTimeout(timeout);
-        console.error(`[FILE-TRANSFER] ERROR: Failed to read file ${file.name}:`, err);
-        socket.destroy();
-        resolve({ success: false, error: 'Failed to read file' });
-      });
-      
-      fileStream.on('end', () => {
-        console.log(`[FILE-TRANSFER] File stream complete for ${file.name}`);
-      });
-      
-      // Pipe file stream to socket
-      fileStream.pipe(socket, { end: true });
-      
-      socket.on('close', () => {
-        clearTimeout(timeout);
-        if (bytesSent === fileSize) {
-          console.log(`[FILE-TRANSFER] Successfully sent ${file.name} (${bytesSent} bytes) to ${peerIP}`);
-          resolve({ success: true });
-        } else {
-          console.error(`[FILE-TRANSFER] ERROR: Incomplete transfer of ${file.name} (${bytesSent}/${fileSize})`);
-          resolve({ success: false, error: 'Incomplete transfer' });
-        }
-      });
-    });
-
-    socket.on('error', (err) => {
-      clearTimeout(timeout);
-      console.error(`[FILE-TRANSFER] ERROR: Failed to send ${file.name} to ${peerIP}:`, err.message);
-      resolve({ success: false, error: err.message });
-    });
-  });
+  const task = createSendFileTask(peerIP, file, from, onProgress);
+  return task.promise;
 }
 
 /**
@@ -619,6 +749,7 @@ function announceProfileUpdate(peerIP, profile) {
 module.exports = {
   PeerServer,
   sendPairRequest,
+  createSendFileTask,
   sendFile,
   announceFile,
   announceFileDelete,

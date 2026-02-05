@@ -19,6 +19,32 @@ function Sidebar({ profile, tailscaleOffline }) {
           </svg>
           <span className="sidebar-link-text">GALLERY</span>
         </NavLink>
+
+        <NavLink
+          to="/transfers"
+          className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="sidebar-link-indicator" />
+          <svg className="sidebar-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <span className="sidebar-link-text">TRANSFERS</span>
+        </NavLink>
+
+        <NavLink
+          to="/statistics"
+          className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="sidebar-link-indicator" />
+          <svg className="sidebar-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 20V10" />
+            <path d="M18 20V4" />
+            <path d="M6 20v-4" />
+          </svg>
+          <span className="sidebar-link-text">STATISTICS</span>
+        </NavLink>
       </nav>
 
       <div className="sidebar-bottom">

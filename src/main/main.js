@@ -1,11 +1,12 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage, globalShortcut, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage, globalShortcut, screen, clipboard, Tray, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
+const { exec } = require('child_process');
 const { pathToFileURL } = require('url');
 const { getTailscaleStatus, getTailscaleIP } = require('./tailscale');
-const { getProfile, saveProfile, updateProfile, getPeers, addPeer, updatePeer, getSettings, updateSettings, addSharedFile, getSharedFiles, removeSharedFile } = require('./store');
-const { PeerServer, sendPairRequest, announceFile, announceFileDelete, announceProfileUpdate } = require('./peerServer');
+const { getProfile, saveProfile, updateProfile, getPeers, addPeer, updatePeer, getSettings, updateSettings, getStats, recordTransferStat, addSharedFile, getSharedFiles, removeSharedFile } = require('./store');
+const { PeerServer, sendPairRequest, createSendFileTask, announceFileDelete, announceProfileUpdate } = require('./peerServer');
 const { setupAutoUpdater } = require('./autoUpdater');
 
 let mainWindow;
@@ -14,8 +15,123 @@ let notificationWindows = []; // Track multiple notification windows
 let peerServer;
 let folderWatcher = null;
 let receivingFiles = new Set(); // Track files currently being received to prevent duplicates
+let tray = null;
+let isQuitting = false;
+
+// Transfer tracking (used by Transfers page)
+// transferId format:
+// - sending: send:<fileId>:<peerIP>
+// - receiving: recv:<fileId>:<peerIP>
+const activeTransfers = new Map(); // transferId -> transfer meta
+const activeSendControllers = new Map(); // transferId -> {pause,resume,cancel,getState,promise}
+
+function sendTransferUpdated(transfer) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('transfer:updated', transfer);
+}
+
+function sendTransferRemoved(transferId) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('transfer:removed', transferId);
+}
+
+function upsertTransfer(transfer) {
+  activeTransfers.set(transfer.transferId, transfer);
+  sendTransferUpdated(transfer);
+}
+
+function removeTransfer(transferId) {
+  activeTransfers.delete(transferId);
+  activeSendControllers.delete(transferId);
+  sendTransferRemoved(transferId);
+}
 
 const isDev = !app.isPackaged;
+
+// Auto-start Tailscale on app launch
+function startTailscale() {
+  console.log('[MAIN] Attempting to start Tailscale...');
+  
+  // Try multiple Tailscale executable locations
+  const tailscalePaths = [
+    'C:\\Program Files\\Tailscale\\tailscale-ipn.exe',
+    'C:\\Program Files (x86)\\Tailscale\\tailscale-ipn.exe',
+    path.join(process.env.LOCALAPPDATA || '', 'Tailscale', 'tailscale-ipn.exe'),
+  ];
+
+  for (const tsPath of tailscalePaths) {
+    if (fs.existsSync(tsPath)) {
+      console.log(`[MAIN] Found Tailscale at: ${tsPath}`);
+      exec(`"${tsPath}"`, (error) => {
+        if (error) {
+          console.log('[MAIN] Tailscale may already be running:', error.message);
+        } else {
+          console.log('[MAIN] Tailscale started successfully');
+        }
+      });
+      return;
+    }
+  }
+
+  console.log('[MAIN] Tailscale executable not found in common locations');
+}
+
+// Create system tray
+function createTray() {
+  const iconPath = path.join(__dirname, '../../assets/icon.png');
+  tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }));
+  
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show Poly-Hub',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
+    {
+      label: 'Transfers',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+          mainWindow.webContents.send('navigate', '/transfers');
+        }
+      },
+    },
+    {
+      label: 'Statistics',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+          mainWindow.webContents.send('navigate', '/statistics');
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit Poly-Hub',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setToolTip('Poly-Hub - P2P File Sharing');
+  tray.setContextMenu(contextMenu);
+
+  // Double-click tray icon to show window
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -61,6 +177,25 @@ function createWindow() {
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('[MAIN] Failed to load:', errorCode, errorDescription);
+  });
+
+  // Minimize to tray instead of closing
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      
+      // Show notification on first minimize
+      const settings = getSettings();
+      if (settings.notifications && !settings.hasSeenTrayNotification) {
+        const { Notification } = require('electron');
+        new Notification({
+          title: 'Poly-Hub Running in Background',
+          body: 'Poly-Hub is still running. You can receive files while minimized. Right-click the tray icon to quit.',
+        }).show();
+        updateSettings({ hasSeenTrayNotification: true });
+      }
+    }
   });
 }
 
@@ -235,6 +370,7 @@ async function startPeerServer() {
       receivedAt: Date.now(),
     };
     addSharedFile(file);
+    recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
     mainWindow.webContents.send('file:received', file);
   });
 
@@ -297,6 +433,7 @@ async function startPeerServer() {
     } else {
       // Auto-accept if within limits
       addSharedFile(file);
+      recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
       mainWindow.webContents.send('file:received', file);
 
       // Show system notification
@@ -313,6 +450,10 @@ async function startPeerServer() {
   // Handle file transfer progress
   peerServer.on('file-progress', (data) => {
     console.log(`[MAIN] File progress: ${data.fileName} - ${data.progress}%`);
+
+    const peerIP = data.from?.ip || 'unknown';
+    const transferId = `recv:${data.fileId}:${peerIP}`;
+
     // Track this file as being received using localPath directly
     if (data.localPath) {
       // Show notification when file starts receiving (first progress event for this file)
@@ -333,7 +474,29 @@ async function startPeerServer() {
       }
       receivingFiles.add(data.localPath);
     }
-    mainWindow.webContents.send('file:progress', data);
+
+    // Update Transfers page state
+    upsertTransfer({
+      transferId,
+      fileId: data.fileId,
+      fileName: data.fileName,
+      direction: 'receiving',
+      peerName: data.from?.name || 'Unknown',
+      peerIP,
+      status: data.progress >= 100 ? 'completed' : 'receiving',
+      progress: data.progress,
+      bytesTransferred: data.bytesReceived,
+      totalBytes: data.totalBytes,
+      updatedAt: Date.now(),
+    });
+
+    // Forward to renderer (Gallery)
+    mainWindow.webContents.send('file:progress', { ...data, transferId });
+
+    if (data.progress >= 100) {
+      // Keep it visible for a moment, then remove from active list.
+      setTimeout(() => removeTransfer(transferId), 3000);
+    }
   });
 
   // Handle blocked files (storage limits exceeded)
@@ -416,7 +579,16 @@ async function startPeerServer() {
   try {
     await peerServer.start();
   } catch (err) {
-    console.error('Failed to start peer server:', err);
+    console.error('[MAIN] Failed to start peer server:', err);
+    if (err.code === 'EADDRINUSE') {
+      const { dialog } = require('electron');
+      dialog.showErrorBox(
+        'Poly-Hub Already Running',
+        'Another instance of Poly-Hub is already running.\n\nPlease close the other instance before starting a new one, or wait a moment for ports to free up.'
+      );
+      app.quit();
+      return;
+    }
   }
 
   // Setup folder watcher for auto-sync
@@ -546,8 +718,16 @@ app.whenReady().then(async () => {
   });
   console.log('[MAIN] Registered custom protocol: polyhub-file://');
 
+  // Start Tailscale first
+  startTailscale();
+  console.log('[MAIN] Tailscale auto-start initiated');
+
   createWindow();
   console.log('[MAIN] Main window created');
+
+  // Create system tray
+  createTray();
+  console.log('[MAIN] System tray created');
 
   await startPeerServer();
   console.log('[MAIN] PolyHub ready');
@@ -574,15 +754,30 @@ app.whenReady().then(async () => {
   }
 });
 
-app.on('will-quit', () => {
+app.on('will-quit', async () => {
   // Unregister all shortcuts
   globalShortcut.unregisterAll();
+
+  // Stop peer server gracefully
+  if (peerServer) {
+    console.log('[MAIN] Shutting down peer server...');
+    try {
+      await peerServer.stop();
+      console.log('[MAIN] Peer server stopped');
+    } catch (err) {
+      console.error('[MAIN] Error stopping peer server:', err);
+    }
+  }
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+  // On macOS, keep app running in background
+  // On Windows/Linux, keep running if we have a tray icon
+  if (process.platform === 'darwin' || tray) {
+    // Keep running in background
+    return;
   }
+  app.quit();
 });
 
 app.on('activate', () => {
@@ -602,7 +797,10 @@ ipcMain.handle('window:maximize', () => {
     mainWindow.maximize();
   }
 });
-ipcMain.handle('window:close', () => mainWindow.close());
+ipcMain.handle('window:close', () => {
+  // Close now minimizes to tray instead
+  mainWindow.hide();
+});
 
 // Overlay window controls
 ipcMain.on('overlay:close', () => {
@@ -678,6 +876,7 @@ ipcMain.on('notification:accept', (event, data) => {
   };
 
   addSharedFile(file);
+  recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
   mainWindow.webContents.send('file:received', file);
 
   const settings = getSettings();
@@ -1060,13 +1259,47 @@ async function shareFilesInternal(files) {
     };
     addSharedFile(sharedFile);
 
-    // Announce to all peers
-    console.log(`[MAIN] Announcing ${file.name} to ${peers.length} peer(s)`);
+    // Send to all peers
+    console.log(`[MAIN] Sending ${file.name} to ${peers.length} peer(s)`);
     for (const peer of peers) {
-      // Send progress to renderer
-      const onProgress = (progress, bytesSent, totalBytes) => {
+      const transferId = `send:${sharedFile.id}:${peer.ip}`;
+
+      upsertTransfer({
+        transferId,
+        fileId: sharedFile.id,
+        fileName: sharedFile.name,
+        direction: 'sending',
+        peerName: peer.name,
+        peerIP: peer.ip,
+        status: 'sending',
+        progress: 0,
+        bytesTransferred: 0,
+        totalBytes: sharedFile.size,
+        startedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      const task = createSendFileTask(peer.ip, sharedFile, profile, (progress, bytesSent, totalBytes) => {
+        // Update Transfers page state
+        upsertTransfer({
+          transferId,
+          fileId: sharedFile.id,
+          fileName: sharedFile.name,
+          direction: 'sending',
+          peerName: peer.name,
+          peerIP: peer.ip,
+          status: activeTransfers.get(transferId)?.status === 'paused' ? 'paused' : 'sending',
+          progress,
+          bytesTransferred: bytesSent,
+          totalBytes,
+          startedAt: activeTransfers.get(transferId)?.startedAt || Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        // Forward to renderer (Gallery)
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('file:progress', {
+            transferId,
             fileId: sharedFile.id,
             fileName: sharedFile.name,
             progress,
@@ -1074,10 +1307,37 @@ async function shareFilesInternal(files) {
             totalBytes,
             direction: 'sending',
             peerName: peer.name,
+            peerIP: peer.ip,
           });
         }
-      };
-      await announceFile(peer.ip, sharedFile, profile, onProgress);
+      });
+
+      activeSendControllers.set(transferId, task);
+
+      const result = await task.promise;
+
+      if (result.success) {
+        recordTransferStat({ direction: 'sent', bytes: (activeTransfers.get(transferId)?.totalBytes || sharedFile.size || 0), timestamp: Date.now() });
+        upsertTransfer({
+          ...(activeTransfers.get(transferId) || {}),
+          transferId,
+          status: 'completed',
+          progress: 100,
+          updatedAt: Date.now(),
+        });
+      } else {
+        const error = result.error || 'Failed';
+        const status = error === 'Cancelled' ? 'cancelled' : 'failed';
+        upsertTransfer({
+          ...(activeTransfers.get(transferId) || {}),
+          transferId,
+          status,
+          updatedAt: Date.now(),
+        });
+      }
+
+      activeSendControllers.delete(transferId);
+      setTimeout(() => removeTransfer(transferId), 5000);
     }
 
     results.push(sharedFile);
@@ -1178,12 +1438,44 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
 
   // Send all files to peers
   for (const file of results) {
-    console.log(`[MAIN] Announcing ${file.relativePath || file.name} to ${peers.length} peer(s)`);
+    console.log(`[MAIN] Sending ${file.relativePath || file.name} to ${peers.length} peer(s)`);
     for (const peer of peers) {
-      // Send progress to renderer
-      const onProgress = (progress, bytesSent, totalBytes) => {
+      const transferId = `send:${file.id}:${peer.ip}`;
+
+      upsertTransfer({
+        transferId,
+        fileId: file.id,
+        fileName: file.name,
+        direction: 'sending',
+        peerName: peer.name,
+        peerIP: peer.ip,
+        status: 'sending',
+        progress: 0,
+        bytesTransferred: 0,
+        totalBytes: file.size,
+        startedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      const task = createSendFileTask(peer.ip, file, profile, (progress, bytesSent, totalBytes) => {
+        upsertTransfer({
+          transferId,
+          fileId: file.id,
+          fileName: file.name,
+          direction: 'sending',
+          peerName: peer.name,
+          peerIP: peer.ip,
+          status: activeTransfers.get(transferId)?.status === 'paused' ? 'paused' : 'sending',
+          progress,
+          bytesTransferred: bytesSent,
+          totalBytes,
+          startedAt: activeTransfers.get(transferId)?.startedAt || Date.now(),
+          updatedAt: Date.now(),
+        });
+
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('file:progress', {
+            transferId,
             fileId: file.id,
             fileName: file.name,
             progress,
@@ -1191,15 +1483,159 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
             totalBytes,
             direction: 'sending',
             peerName: peer.name,
+            peerIP: peer.ip,
           });
         }
-      };
-      await announceFile(peer.ip, file, profile, onProgress);
+      });
+
+      activeSendControllers.set(transferId, task);
+
+      const result = await task.promise;
+
+      if (result.success) {
+        recordTransferStat({ direction: 'sent', bytes: (activeTransfers.get(transferId)?.totalBytes || file.size || 0), timestamp: Date.now() });
+        upsertTransfer({
+          ...(activeTransfers.get(transferId) || {}),
+          transferId,
+          status: 'completed',
+          progress: 100,
+          updatedAt: Date.now(),
+        });
+      } else {
+        const error = result.error || 'Failed';
+        const status = error === 'Cancelled' ? 'cancelled' : 'failed';
+        upsertTransfer({
+          ...(activeTransfers.get(transferId) || {}),
+          transferId,
+          status,
+          updatedAt: Date.now(),
+        });
+      }
+
+      activeSendControllers.delete(transferId);
+      setTimeout(() => removeTransfer(transferId), 5000);
     }
   }
 
   console.log(`[MAIN] Successfully shared folder with ${results.length} file(s)`);
   return results;
+});
+
+// Transfers
+ipcMain.handle('transfers:getActive', () => {
+  return Array.from(activeTransfers.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+});
+
+ipcMain.handle('transfers:pause', (event, transferId) => {
+  const controller = activeSendControllers.get(transferId);
+  if (!controller) return { success: false, error: 'Transfer not found' };
+
+  const result = controller.pause();
+  if (result.success) {
+    const current = activeTransfers.get(transferId);
+    if (current) {
+      upsertTransfer({ ...current, status: 'paused', updatedAt: Date.now() });
+    }
+  }
+  return result;
+});
+
+ipcMain.handle('transfers:resume', (event, transferId) => {
+  const controller = activeSendControllers.get(transferId);
+  if (!controller) return { success: false, error: 'Transfer not found' };
+
+  const result = controller.resume();
+  if (result.success) {
+    const current = activeTransfers.get(transferId);
+    if (current) {
+      upsertTransfer({ ...current, status: 'sending', updatedAt: Date.now() });
+    }
+  }
+  return result;
+});
+
+ipcMain.handle('transfers:cancel', (event, transferId) => {
+  const controller = activeSendControllers.get(transferId);
+  if (!controller) return { success: false, error: 'Transfer not found' };
+
+  controller.cancel();
+
+  const current = activeTransfers.get(transferId);
+  if (current) {
+    upsertTransfer({ ...current, status: 'cancelled', updatedAt: Date.now() });
+  }
+
+  activeSendControllers.delete(transferId);
+  setTimeout(() => removeTransfer(transferId), 3000);
+
+  return { success: true };
+});
+
+// Clipboard
+ipcMain.handle('clipboard:share', async () => {
+  try {
+    const image = clipboard.readImage();
+    if (image && !image.isEmpty()) {
+      const png = image.toPNG();
+      const name = `clipboard-${Date.now()}.png`;
+      const tmpPath = path.join(app.getPath('temp'), name);
+
+      fs.writeFileSync(tmpPath, png);
+      try {
+        const files = await shareFilesInternal([
+          {
+            path: tmpPath,
+            name,
+            size: png.length,
+            type: 'png',
+          },
+        ]);
+        return { success: true, files };
+      } finally {
+        try {
+          if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    const text = clipboard.readText();
+    if (text && text.trim()) {
+      const buf = Buffer.from(text, 'utf8');
+      const name = `clipboard-${Date.now()}.txt`;
+      const tmpPath = path.join(app.getPath('temp'), name);
+
+      fs.writeFileSync(tmpPath, buf);
+      try {
+        const files = await shareFilesInternal([
+          {
+            path: tmpPath,
+            name,
+            size: buf.length,
+            type: 'txt',
+          },
+        ]);
+        return { success: true, files };
+      } finally {
+        try {
+          if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    return { success: false, error: 'Clipboard is empty' };
+  } catch (err) {
+    console.error('[MAIN] ERROR: Failed to share clipboard:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Statistics
+ipcMain.handle('stats:get', () => {
+  return getStats();
 });
 
 // Get shared files - filter out files that no longer exist on disk
