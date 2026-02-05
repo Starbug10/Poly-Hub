@@ -34,14 +34,18 @@ jobs:
         with:
           name: windows-installers
           path: |
-            dist-electron/*.exe
+            dist-electron/Poly-Hub-Setup-*.exe
+            dist-electron/Poly-Hub-Portable-*.exe
+            dist-electron/*.yml
             dist-electron/*.blockmap
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist-electron/*.exe
+            dist-electron/Poly-Hub-Setup-*.exe
+            dist-electron/Poly-Hub-Portable-*.exe
+            dist-electron/latest.yml
             dist-electron/*.blockmap
           draft: false
           prerelease: false

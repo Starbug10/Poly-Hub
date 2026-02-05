@@ -145,29 +145,29 @@ src/
 ```bash
 # Update version.json
 {
-  "version": "4.0.2",
+  "version": "4.0.4",
   "buildDate": "2026-02-XX",
   "name": "Poly-Hub"
 }
 
 # Update package.json
-"version": "4.0.2"
+"version": "4.0.4"
 ```
 
 **2. Commit and tag:**
 ```bash
 git add .
-git commit -m "Version 4.0.2 - Description of changes"
-git tag v4.0.2
+git commit -m "Version 4.0.4 - Description of changes"
+git tag v4.0.4
 git push origin main
-git push origin v4.0.2
+git push origin v4.0.4
 ```
 
 **3. GitHub Actions automatically:**
-- Builds Windows installer (NSIS)
-- Builds portable EXE
+- Builds Windows installer (NSIS): `Poly-Hub-Setup-4.0.4.exe`
+- Builds portable EXE: `Poly-Hub-Portable-4.0.4.exe`
 - Creates GitHub release
-- Uploads installers to release
+- Uploads both installers + update metadata to release
 
 **4. Auto-update triggers:**
 - Users with older versions get update prompt on next launch
@@ -175,7 +175,7 @@ git push origin v4.0.2
 - App restarts with new version
 - All settings/files preserved
 
-**Note:** Auto-updater checks GitHub releases every 6 hours and on startup.
+**Note:** Auto-updater checks GitHub releases every 6 hours and on startup. Manual check available in Settings.
 
 ### Installation & Updates
 - NSIS installer automatically replaces old versions
@@ -222,4 +222,4 @@ git push origin v4.0.2
 - **Auto-start not working:** Reinstall with NSIS installer
 
 ---
-*Version: 4.0.1 | Last Updated: February 2026*
+*Version: 4.0.4 | Last Updated: February 2026*
