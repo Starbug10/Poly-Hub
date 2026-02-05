@@ -61,13 +61,13 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
     // Listen for file progress - throttled to reduce re-renders during drag-drop
     window.electronAPI.onFileProgress((progress) => {
       console.log('[Gallery] File progress:', progress.fileName, progress.progress + '%', progress.direction || 'receiving');
-      
+
       // Store in ref immediately (no re-render)
       fileProgressRef.current = {
         ...fileProgressRef.current,
         [progress.fileId]: progress,
       };
-      
+
       if (progress.progress >= 100) {
         // Clear progress after completion with a small delay for visual feedback
         setTimeout(() => {
@@ -97,11 +97,11 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
     // Listen for peer updates
     window.electronAPI.onPeerUpdated((updatedPeer) => {
       console.log('[Gallery] Peer updated:', updatedPeer.name);
-      setPeers((prev) => 
-        prev.map((p) => p.ip === updatedPeer.ip ? { 
-          ...p, 
+      setPeers((prev) =>
+        prev.map((p) => p.ip === updatedPeer.ip ? {
+          ...p,
           name: updatedPeer.name,
-          profilePicture: updatedPeer.profilePicture 
+          profilePicture: updatedPeer.profilePicture
         } : p)
       );
     });
@@ -141,11 +141,16 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
 
     const currentSettings = await window.electronAPI.getSettings();
     setSettings(currentSettings);
-    
+
     // Check Tailscale status on load
     const status = await window.electronAPI.getTailscaleStatus();
     if (!status?.running) {
       setTailscaleOffline(true);
+    }
+
+    // Check peer status on load
+    if (peerList.length > 0) {
+      await checkPeersStatus();
     }
   }
 
@@ -165,7 +170,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
         statusMap[result.ip] = result.online;
       });
       setPeerStatus(statusMap);
-      
+
       // Check if any peers are online
       const onlineCount = Object.values(statusMap).filter(isOnline => isOnline).length;
       return onlineCount > 0;
@@ -344,7 +349,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
       setNoPeersOnline(true);
       return;
     }
-    
+
     console.log('[Gallery] Opening file selection dialog');
     const selectedFiles = await window.electronAPI.selectFiles();
     console.log('[Gallery] Files selected:', selectedFiles.length);
@@ -367,7 +372,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
       });
       // Only add files that aren't already in the list (they may have been auto-added)
       setFiles((prev) => {
-        const newFiles = sharedFiles.filter(file => 
+        const newFiles = sharedFiles.filter(file =>
           !prev.some(f => f.id === file.id || f.path === file.path)
         );
         return [...prev, ...newFiles];
@@ -422,7 +427,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
       setNoPeersOnline(true);
       return;
     }
-    
+
     console.log('[Gallery] Opening folder selection dialog');
     const folder = await window.electronAPI.selectFolder();
     if (folder) {
@@ -455,7 +460,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
     }
     setFiles([]);
     setDeletingFiles(new Set());
-    
+
     // Reload files from sync folder to ensure gallery is in sync
     const sharedFiles = await window.electronAPI.getSharedFiles();
     setFiles(sharedFiles);
@@ -467,7 +472,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
 
     // Search filter
     if (searchQuery) {
-      filtered = filtered.filter(file => 
+      filtered = filtered.filter(file =>
         file.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
@@ -526,7 +531,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
   const getUniqueSenders = () => {
     const senders = new Set();
     let hasSelfFiles = false;
-    
+
     files.forEach(file => {
       const sender = file.from?.name || file.sharedBy;
       if (sender === 'You' || !file.from) {
@@ -535,7 +540,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
         senders.add(sender);
       }
     });
-    
+
     const result = [];
     if (hasSelfFiles) {
       result.push('myself');
@@ -555,7 +560,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
   );
 
   return (
-    <div 
+    <div
       className="gallery"
       onDragEnter={hasPeers ? handleDragEnter : undefined}
       onDragOver={hasPeers ? handleDragOver : undefined}
@@ -630,8 +635,8 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
         <div className="gallery-header-right">
           {hasPeers && (
             <>
-              <button 
-                className="gallery-folder-btn" 
+              <button
+                className="gallery-folder-btn"
                 onClick={handleSelectFolder}
                 title="Select folder to share"
               >
@@ -639,35 +644,58 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                 </svg>
               </button>
-              <div 
-                className="gallery-peer-count"
-                onMouseEnter={() => setShowPeerTooltip(true)}
-                onMouseLeave={() => setShowPeerTooltip(false)}
-              >
-                <span className="peer-count-number">{peers.length}</span>
-                <span className="peer-count-label">PEER{peers.length !== 1 ? 'S' : ''}</span>
-                {showPeerTooltip && (
-                  <div className="peer-tooltip">
-                    <div className="peer-tooltip-title">CONNECTED PEERS</div>
-                    {peers.map((peer) => (
-                      <div key={peer.ip} className="peer-tooltip-item">
-                        <div className="peer-tooltip-avatar">
-                          {peer.profilePicture ? (
-                            <img src={peer.profilePicture} alt="" className="peer-tooltip-avatar-img" />
-                          ) : (
-                            <span className="peer-tooltip-avatar-initial">{(peer.name || '?')[0].toUpperCase()}</span>
-                          )}
-                          <span className={`peer-tooltip-status-dot ${peerStatus[peer.ip] ? 'online' : 'offline'}`}></span>
-                        </div>
-                        <div className="peer-tooltip-info">
-                          <span className="peer-tooltip-name">{peer.name}</span>
-                          <span className="peer-tooltip-ip">{peer.ip}</span>
-                        </div>
+              {settings.showPeerProfiles ? (
+                <div className="gallery-peer-profiles">
+                  {peers.map((peer) => (
+                    <div key={peer.ip} className="gallery-peer-profile">
+                      <div className="gallery-peer-avatar">
+                        {peer.profilePicture ? (
+                          <img src={peer.profilePicture} alt="" className="gallery-peer-avatar-img" />
+                        ) : (
+                          <span className="gallery-peer-avatar-initial">{(peer.name || '?')[0].toUpperCase()}</span>
+                        )}
+                        <span className={`gallery-peer-status-dot ${peerStatus[peer.ip] ? 'online' : 'offline'}`}></span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      <div className="gallery-peer-info">
+                        <span className="gallery-peer-name">{peer.name}</span>
+                        <span className={`gallery-peer-status ${peerStatus[peer.ip] ? 'online' : 'offline'}`}>
+                          {peerStatus[peer.ip] ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="gallery-peer-count"
+                  onMouseEnter={() => setShowPeerTooltip(true)}
+                  onMouseLeave={() => setShowPeerTooltip(false)}
+                >
+                  <span className="peer-count-number">{peers.length}</span>
+                  <span className="peer-count-label">PEER{peers.length !== 1 ? 'S' : ''}</span>
+                  {showPeerTooltip && (
+                    <div className="peer-tooltip">
+                      <div className="peer-tooltip-title">CONNECTED PEERS</div>
+                      {peers.map((peer) => (
+                        <div key={peer.ip} className="peer-tooltip-item">
+                          <div className="peer-tooltip-avatar">
+                            {peer.profilePicture ? (
+                              <img src={peer.profilePicture} alt="" className="peer-tooltip-avatar-img" />
+                            ) : (
+                              <span className="peer-tooltip-avatar-initial">{(peer.name || '?')[0].toUpperCase()}</span>
+                            )}
+                            <span className={`peer-tooltip-status-dot ${peerStatus[peer.ip] ? 'online' : 'offline'}`}></span>
+                          </div>
+                          <div className="peer-tooltip-info">
+                            <span className="peer-tooltip-name">{peer.name}</span>
+                            <span className="peer-tooltip-ip">{peer.ip}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -751,7 +779,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
           </div>
 
           <div className="filter-results">
-            {filteredFiles.length !== files.length 
+            {filteredFiles.length !== files.length
               ? `Showing ${filteredFiles.length} of ${files.length} files`
               : `${files.length} file${files.length !== 1 ? 's' : ''} total`
             }
@@ -867,13 +895,13 @@ function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
 
   useEffect(() => {
     let mounted = true;
-    
+
     async function loadThumbnail() {
       if (!file.path) {
         setLoadingThumbnail(false);
         return;
       }
-      
+
       try {
         const thumbData = await window.electronAPI.getThumbnail(file.path);
         if (mounted && thumbData) {
@@ -897,13 +925,13 @@ function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
 
   const isDownloading = progress && progress.progress < 100;
   const isSending = progress && progress.direction === 'sending';
-  
+
   // Check if file is an image type
   const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
   const isImage = imageExts.includes(file.type?.toLowerCase());
 
   return (
-    <div 
+    <div
       className={`file-card ${isDeleting ? 'file-card-deleting' : ''} ${isDownloading ? 'file-card-downloading' : ''}`}
       onClick={() => !isDeleting && !isDownloading && onOpen(file)}
     >
@@ -914,22 +942,22 @@ function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
           <span>Deleting...</span>
         </div>
       )}
-      
+
       {/* Downloading/Sending progress */}
       {isDownloading && (
         <div className={`file-card-overlay ${isSending ? 'sending' : 'receiving'}`}>
           <div className="file-progress-container">
-            <div 
-              className="file-progress-bar" 
+            <div
+              className="file-progress-bar"
               style={{ width: `${progress.progress}%` }}
             ></div>
           </div>
           <span>{isSending ? 'Sending' : 'Receiving'} {progress.progress}%</span>
         </div>
       )}
-      
-      <button 
-        className="file-delete-btn" 
+
+      <button
+        className="file-delete-btn"
         onClick={(e) => onDelete(e, file.id)}
         title="Delete file"
         disabled={isDeleting}
@@ -938,9 +966,9 @@ function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
       </button>
       <div className="file-thumbnail">
         {thumbnail ? (
-          <img 
+          <img
             src={thumbnail}
-            alt={file.name} 
+            alt={file.name}
             className={`file-thumbnail-img ${isImage ? 'is-image' : 'is-icon'}`}
           />
         ) : loadingThumbnail ? (
@@ -969,7 +997,7 @@ function getFileIcon(type) {
   const icons = {
     // Folders
     folder: '📁',
-    
+
     // Archives
     zip: '📦',
     rar: '📦',
@@ -977,7 +1005,7 @@ function getFileIcon(type) {
     tar: '📦',
     gz: '📦',
     bz2: '📦',
-    
+
     // Documents
     pdf: '📄',
     doc: '📝',
@@ -985,18 +1013,18 @@ function getFileIcon(type) {
     txt: '📝',
     rtf: '📝',
     odt: '📝',
-    
+
     // Spreadsheets
     xls: '📊',
     xlsx: '📊',
     csv: '📊',
     ods: '📊',
-    
+
     // Presentations
     ppt: '📽',
     pptx: '📽',
     odp: '📽',
-    
+
     // Images
     jpg: '🖼',
     jpeg: '🖼',
@@ -1010,7 +1038,7 @@ function getFileIcon(type) {
     tif: '🖼',
     heic: '🖼',
     heif: '🖼',
-    
+
     // Videos
     mp4: '🎬',
     mkv: '🎬',
@@ -1020,7 +1048,7 @@ function getFileIcon(type) {
     flv: '🎬',
     webm: '🎬',
     m4v: '🎬',
-    
+
     // Audio
     mp3: '🎵',
     wav: '🎵',
@@ -1030,7 +1058,7 @@ function getFileIcon(type) {
     wma: '🎵',
     m4a: '🎵',
     opus: '🎵',
-    
+
     // Code
     js: '💻',
     jsx: '💻',
@@ -1049,7 +1077,7 @@ function getFileIcon(type) {
     css: '💻',
     json: '💻',
     xml: '💻',
-    
+
     // Executables
     exe: '⚙',
     msi: '⚙',

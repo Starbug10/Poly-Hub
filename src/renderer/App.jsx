@@ -41,7 +41,7 @@ function App() {
 
       // Check peer status if profile exists
       if (existingProfile) {
-        checkAllPeersStatus();
+        await checkAllPeersStatus();
       }
 
       // Apply saved theme

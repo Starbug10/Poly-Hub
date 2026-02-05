@@ -12,6 +12,7 @@ function Settings({ profile: initialProfile, onProfileUpdate, peerStatus: extern
     accentColor: '#ff6700',
     compactSidebar: false,
     overlayShortcut: 'Alt+D',
+    showPeerProfiles: false, // New setting to show peer profiles in Gallery
   });
   const [profile, setProfile] = useState(initialProfile);
   const [peers, setPeers] = useState([]);
@@ -149,6 +150,7 @@ function Settings({ profile: initialProfile, onProfileUpdate, peerStatus: extern
       accentColor: currentSettings.accentColor || '#ff6700',
       compactSidebar: currentSettings.compactSidebar || false,
       overlayShortcut: currentSettings.overlayShortcut || 'Alt+D',
+      showPeerProfiles: currentSettings.showPeerProfiles || false,
     });
 
     // Apply saved theme on load
@@ -689,6 +691,22 @@ function Settings({ profile: initialProfile, onProfileUpdate, peerStatus: extern
                     type="checkbox"
                     checked={settings.compactSidebar}
                     onChange={(e) => setSettings((prev) => ({ ...prev, compactSidebar: e.target.checked }))}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-label">
+                <span className="label-title">Show Peer Profiles</span>
+                <span className="label-description">Display peer avatars in Gallery header instead of count</span>
+              </div>
+              <div className="setting-value">
+                <label className="setting-toggle">
+                  <input
+                    type="checkbox"
+                    checked={settings.showPeerProfiles}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, showPeerProfiles: e.target.checked }))}
                   />
                   <span className="toggle-slider"></span>
                 </label>
