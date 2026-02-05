@@ -145,35 +145,64 @@ src/
 ```bash
 # Update version.json
 {
-  "version": "4.0.4",
+  "version": "4.1.2",
   "buildDate": "2026-02-XX",
   "name": "Poly-Hub"
 }
 
 # Update package.json
-"version": "4.0.4"
+"version": "4.1.2"
 ```
 
 **2. Commit and tag:**
 ```bash
 git add .
-git commit -m "Version 4.0.4 - Description of changes"
-git tag v4.0.4
+git commit -m "Version 4.1.2 - Description of changes"
+git tag v4.1.2
 git push origin main
-git push origin v4.0.4
+git push origin v4.1.2
 ```
 
 **3. GitHub Actions automatically:**
-- Builds Windows installer (NSIS): `Poly-Hub-Setup-4.0.4.exe`
-- Builds portable EXE: `Poly-Hub-Portable-4.0.4.exe`
+- Builds Windows installer (NSIS): `Poly-Hub-Setup-4.1.2.exe`
+- Builds portable EXE: `Poly-Hub-Portable-4.1.2.exe`
 - Creates GitHub release
-- Uploads both installers + update metadata to release
+- Uploads both installers + update metadata (`latest.yml`, `app-update.yml`) to release
 
 **4. Auto-update triggers:**
 - Users with older versions get update prompt on next launch
 - Downloads and installs automatically
 - App restarts with new version
 - All settings/files preserved
+
+**CRITICAL: Auto-Updater Configuration**
+To ensure auto-updates work properly, the following must be maintained:
+
+1. **Never set `forceDevUpdateConfig = true` in production** (`src/main/autoUpdater.js`)
+   - This forces electron-updater to look for `dev-app-update.yml` instead of production files
+   - Production builds must use standard `latest.yml` and `app-update.yml`
+
+2. **GitHub Actions must upload both update metadata files** (`.github/workflows/release.yml`):
+   ```yaml
+   files: |
+     dist-electron/Poly-Hub-Setup-*.exe
+     dist-electron/Poly-Hub-Portable-*.exe
+     dist-electron/latest.yml
+     dist-electron/app-update.yml
+     dist-electron/*.blockmap
+   ```
+
+3. **NSIS config must enable differential updates** (`package.json`):
+   ```json
+   "nsis": {
+     "differentialPackage": true,
+     ...
+   }
+   ```
+
+4. **Verify update files are generated** after building:
+   - Check `dist-electron/` contains `latest.yml` and `app-update.yml`
+   - Both files should reference the correct version and download URLs
 
 **Note:** Auto-updater checks GitHub releases every 6 hours and on startup. Manual check available in Settings.
 
@@ -215,6 +244,7 @@ git push origin v4.0.4
 - Hash check sent/recivied to double confirm it has not been tainted
 
 ### Troubleshooting
+- **Auto-update fails with "ENOENT: no such file" error:** Fixed in v4.1.2 - removed `forceDevUpdateConfig` flag
 - **Blank screen on startup (v4.0.1-4.0.3):** Fixed in v4.0.4 - incorrect production build path
 - **Files not transferring:** Check Tailscale connection, firewall (ports 47777/47778)
 - **Thumbnails missing:** Verify file path, check CSP allows `polyhub-file:`
@@ -223,4 +253,4 @@ git push origin v4.0.4
 - **Auto-start not working:** Reinstall with NSIS installer
 
 ---
-*Version: 4.0.4 | Last Updated: February 2026*
+*Version: 4.1.2 | Last Updated: February 2026*
