@@ -115,6 +115,7 @@ function setupAutoUpdater(window) {
 
     autoUpdater.on('update-downloaded', (info) => {
         console.log('[AUTO-UPDATER] Update downloaded:', info.version);
+        console.log('[AUTO-UPDATER] Update will be installed on quit');
 
         dialog.showMessageBox(mainWindow, {
             type: 'info',
@@ -124,8 +125,14 @@ function setupAutoUpdater(window) {
             buttons: ['Restart Now'],
             defaultId: 0
         }).then(() => {
-            console.log('[AUTO-UPDATER] Installing update and restarting...');
-            autoUpdater.quitAndInstall(false, true);
+            console.log('[AUTO-UPDATER] User clicked Restart Now');
+            console.log('[AUTO-UPDATER] Quitting and installing...');
+
+            // For NSIS installers, we need to quit immediately and let the installer run
+            // isSilent = false (show installer), isForceRunAfter = true (restart after install)
+            setImmediate(() => {
+                autoUpdater.quitAndInstall(false, true);
+            });
         });
     });
 }
