@@ -1,6 +1,17 @@
-# Poly-Hub V1.0.0
+<div align="center">
+
+<h1>
+  PolyHub
+  <img src="assets/icon.png" alt="PolyHub Logo" width="60" align="center" />
+</h1>
+
+[![Latest Release](https://img.shields.io/github/v/release/Starbug10/Poly-Hub?style=flat-square)](https://github.com/Starbug10/Poly-Hub/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/Starbug10/Poly-Hub?style=flat-square&color=333333)](https://github.com/Starbug10/Poly-Hub/commits/main)
+[![Stars](https://img.shields.io/github/stars/Starbug10/Poly-Hub?style=flat-square)](https://github.com/Starbug10/Poly-Hub/stargazers)
 
 > P2P file sharing between trusted users over Tailscale. Built for massive files (5GB+), instant sharing, and a brutalist aesthetic.
+
+</div>
 
 ---
 
