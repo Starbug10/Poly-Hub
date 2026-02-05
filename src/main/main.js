@@ -39,7 +39,10 @@ function createWindow() {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
     mainWindow.show(); // Show in dev mode
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // In production, dist is at the app root level
+    const indexPath = path.join(__dirname, '../../dist/index.html');
+    console.log('[MAIN] Loading production HTML from:', indexPath);
+    mainWindow.loadFile(indexPath);
     // Check if app was started with --hidden flag or on startup
     if (!process.argv.includes('--hidden')) {
       mainWindow.show();
@@ -47,9 +50,17 @@ function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
+    console.log('[MAIN] Window ready to show');
     if (!process.argv.includes('--hidden') || isDev) {
       mainWindow.show();
+      console.log('[MAIN] Window shown');
+    } else {
+      console.log('[MAIN] Window hidden (started with --hidden flag)');
     }
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[MAIN] Failed to load:', errorCode, errorDescription);
   });
 }
 

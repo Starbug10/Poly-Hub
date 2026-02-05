@@ -15,6 +15,14 @@
 
 ---
 
+## ⚠️ Important Notice
+
+**Version 4.0.4 is now available!** This release fixes a critical bug that caused versions 4.0.1-4.0.3 to show a blank screen on startup. If you're experiencing issues with previous versions, please download and install 4.0.4.
+
+[Download Latest Release](https://github.com/Starbug10/Poly-Hub/releases/latest)
+
+---
+
 ## What It Does
 
 Poly-Hub connects 2-3 users via Tailscale's encrypted mesh network to share files of any size instantly. No cloud storage, no upload limits, direct peer-to-peer transfers.

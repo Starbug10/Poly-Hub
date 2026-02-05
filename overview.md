@@ -214,7 +214,8 @@ git push origin v4.0.4
 - End-to-end encryption
 - Hash check sent/recivied to double confirm it has not been tainted
 
-## Troubleshooting
+### Troubleshooting
+- **Blank screen on startup (v4.0.1-4.0.3):** Fixed in v4.0.4 - incorrect production build path
 - **Files not transferring:** Check Tailscale connection, firewall (ports 47777/47778)
 - **Thumbnails missing:** Verify file path, check CSP allows `polyhub-file:`
 - **Peers not connecting:** Verify Tailscale running, correct IP (100.x.x.x)
