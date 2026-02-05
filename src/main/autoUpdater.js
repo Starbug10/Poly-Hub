@@ -12,6 +12,10 @@ let mainWindow;
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
+// IMPORTANT: Disable signature verification for unsigned builds
+// Remove this in production with proper code signing
+autoUpdater.forceDevUpdateConfig = true;
+
 // Set update feed URL explicitly
 autoUpdater.setFeedURL({
     provider: 'github',
