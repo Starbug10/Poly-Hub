@@ -592,6 +592,8 @@
   gap: var(--space-4);
   width: 100%;
   align-content: start;
+  padding: 2px;
+  /* Prevent border clipping on hover */
 }
 
 .file-card {
