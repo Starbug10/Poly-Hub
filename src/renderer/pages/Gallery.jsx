@@ -457,21 +457,30 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
     }
     console.log('[Gallery] Clearing all files:', files.length);
     const fileIds = files.map(f => f.id);
-    for (const fileId of fileIds) {
-      setDeletingFiles((prev) => new Set(prev).add(fileId));
-      try {
-        await window.electronAPI.deleteFile(fileId);
-        console.log('[Gallery] Deleted file:', fileId);
-      } catch (err) {
-        console.error('[Gallery] ERROR: Failed to delete file:', err);
-      }
-    }
-    setFiles([]);
-    setDeletingFiles(new Set());
 
-    // Reload files from sync folder to ensure gallery is in sync
+    // Clear UI immediately for instant feedback
+    setFiles([]);
+    setDeletingFiles(new Set(fileIds));
+
+    // Delete all files in parallel
+    const deletePromises = fileIds.map(fileId =>
+      window.electronAPI.deleteFile(fileId)
+        .then(() => console.log('[Gallery] Deleted file:', fileId))
+        .catch(err => console.error('[Gallery] ERROR: Failed to delete file:', err))
+    );
+
+    // Wait for all deletions to complete
+    await Promise.all(deletePromises);
+
+    // Small delay to let folder watcher process deletions
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Reload to ensure sync
     const sharedFiles = await window.electronAPI.getSharedFiles();
     setFiles(sharedFiles);
+    setDeletingFiles(new Set());
+
+    console.log('[Gallery] Clear all complete. Remaining files:', sharedFiles.length);
   };
 
   // Filter and sort files

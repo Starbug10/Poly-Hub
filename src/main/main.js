@@ -932,6 +932,27 @@ function setupFolderWatcher(syncFolder) {
         mainWindow.webContents.send('file:deleted', deletedFile.id);
 
         console.log(`[MAIN] Auto-removed file from gallery: ${filename}`);
+
+        // Notify all peers about deletion
+        const profile = getProfile();
+        const peers = getPeers();
+
+        if (peers.length > 0) {
+          console.log(`[MAIN] Notifying ${peers.length} peer(s) about file deletion`);
+
+          for (const peer of peers) {
+            try {
+              const sendResult = await announceFileDelete(peer.ip, deletedFile.id, profile);
+              if (sendResult.success) {
+                console.log(`[MAIN] Notified ${peer.name} about deletion of ${filename}`);
+              } else {
+                console.error(`[MAIN] Failed to notify ${peer.name}: ${sendResult.error}`);
+              }
+            } catch (err) {
+              console.error(`[MAIN] Error notifying ${peer.name}:`, err);
+            }
+          }
+        }
       }
       return;
     }
@@ -982,6 +1003,27 @@ function setupFolderWatcher(syncFolder) {
     mainWindow.webContents.send('file:auto-added', file);
 
     console.log(`[MAIN] Auto-added file: ${filename}`);
+
+    // Send file to all peers
+    const profile = getProfile();
+    const peers = getPeers();
+
+    if (peers.length > 0) {
+      console.log(`[MAIN] Sending auto-added file to ${peers.length} peer(s)`);
+
+      for (const peer of peers) {
+        try {
+          const sendResult = await createSendFileTask(peer.ip, filePath, profile);
+          if (sendResult.success) {
+            console.log(`[MAIN] Sent ${filename} to ${peer.name}`);
+          } else {
+            console.error(`[MAIN] Failed to send to ${peer.name}: ${sendResult.error}`);
+          }
+        } catch (err) {
+          console.error(`[MAIN] Error sending to ${peer.name}:`, err);
+        }
+      }
+    }
   });
 
   console.log('[MAIN] Folder watcher active');
