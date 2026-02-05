@@ -1,6 +1,6 @@
 {
   "name": "poly-hub",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "description": "P2P file sharing between trusted users over Tailscale",
   "main": "src/main/main.js",
   "scripts": {
@@ -84,7 +84,8 @@
       "perMachine": false,
       "runAfterFinish": true,
       "artifactName": "Poly-Hub-Setup-${version}.${ext}",
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "differentialPackage": true
     },
     "portable": {
       "artifactName": "Poly-Hub-Portable-${version}.${ext}"

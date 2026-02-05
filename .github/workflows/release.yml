@@ -46,6 +46,7 @@ jobs:
             dist-electron/Poly-Hub-Setup-*.exe
             dist-electron/Poly-Hub-Portable-*.exe
             dist-electron/latest.yml
+            dist-electron/app-update.yml
             dist-electron/*.blockmap
           draft: false
           prerelease: false
