@@ -609,6 +609,7 @@
 .file-card:hover {
   transform: translate(-2px, -2px);
   box-shadow: var(--shadow-md);
+  border-color: var(--color-accent);
 }
 
 .file-card:hover .file-delete-btn {
