@@ -37,7 +37,11 @@ function Sidebar({ profile, tailscaleOffline }) {
         <div className="sidebar-profile">
           <div className="sidebar-profile-divider" />
           <div className={`sidebar-profile-icon ${tailscaleOffline ? 'offline' : ''}`}>
-            {profile?.name?.[0]?.toUpperCase() || 'U'}
+            {profile?.profilePicture ? (
+              <img src={profile.profilePicture} alt="" className="sidebar-profile-picture" />
+            ) : (
+              profile?.name?.[0]?.toUpperCase() || 'U'
+            )}
             <span className={`status-indicator ${tailscaleOffline ? 'offline' : ''}`}></span>
           </div>
           <div className="sidebar-profile-content">

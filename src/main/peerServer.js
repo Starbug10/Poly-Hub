@@ -321,6 +321,7 @@ class PeerServer extends EventEmitter {
         this.emit('pair-request', {
           name: message.name,
           ip: message.ip,
+          profilePicture: message.profilePicture || null,
         });
         // Send acknowledgment
         this.sendMessage(socket, {
@@ -405,6 +406,7 @@ function sendPairRequest(peerIP, profile) {
         type: 'PAIR_REQUEST',
         name: profile.name,
         ip: profile.ip,
+        profilePicture: profile.profilePicture || null,
       }));
     });
 
@@ -541,10 +543,11 @@ function sendFile(peerIP, file, from, onProgress) {
  * @param {string} peerIP - The Tailscale IP of the peer
  * @param {object} file - File info {name, size, type, path}
  * @param {object} from - Our profile {name, ip}
+ * @param {function} onProgress - Optional callback for progress updates
  */
-function announceFile(peerIP, file, from) {
+function announceFile(peerIP, file, from, onProgress) {
   // Use sendFile for actual file transfer
-  return sendFile(peerIP, file, from);
+  return sendFile(peerIP, file, from, onProgress);
 }
 
 /**

@@ -78,6 +78,10 @@ function App() {
     }
   }, [tailscaleStatus?.running, profile]);
 
+  const handleProfileUpdate = (updatedProfile) => {
+    setProfile(updatedProfile);
+  };
+
   if (loading) {
     return (
       <div className="app">
@@ -112,7 +116,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/gallery" replace />} />
                 <Route path="/gallery" element={<Gallery tailscaleOffline={tailscaleOffline} />} />
-                <Route path="/settings" element={<Settings profile={profile} />} />
+                <Route path="/settings" element={<Settings profile={profile} onProfileUpdate={handleProfileUpdate} />} />
               </Routes>
             </main>
           </>

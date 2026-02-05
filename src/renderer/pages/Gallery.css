@@ -723,6 +723,15 @@
   background-color: rgba(0, 0, 0, 0.75);
 }
 
+/* Sending overlay has different accent color */
+.file-card-overlay.sending .file-progress-bar {
+  background-color: var(--color-success);
+}
+
+.file-card-overlay.receiving .file-progress-bar {
+  background-color: var(--color-accent);
+}
+
 /* Loading Spinner */
 .file-loading-spinner {
   width: 32px;

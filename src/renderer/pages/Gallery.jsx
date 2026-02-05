@@ -58,7 +58,17 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
 
     // Listen for file progress
     window.electronAPI.onFileProgress((progress) => {
-      console.log('[Gallery] File progress:', progress.fileName, progress.progress + '%');
+      console.log('[Gallery] File progress:', progress.fileName, progress.progress + '%', progress.direction || 'receiving');
+      if (progress.progress >= 100) {
+        // Clear progress after completion with a small delay for visual feedback
+        setTimeout(() => {
+          setFileProgress((prev) => {
+            const updated = { ...prev };
+            delete updated[progress.fileId];
+            return updated;
+          });
+        }, 1000);
+      }
       setFileProgress((prev) => ({
         ...prev,
         [progress.fileId]: progress,
@@ -120,11 +130,16 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
   // Check peer online status
   const checkPeersStatus = useCallback(async () => {
     try {
-      const status = await window.electronAPI.checkAllPeersStatus();
-      setPeerStatus(status);
+      const statusResults = await window.electronAPI.checkAllPeersStatus();
+      // Convert array to map like Settings does
+      const statusMap = {};
+      statusResults.forEach(result => {
+        statusMap[result.ip] = result.online;
+      });
+      setPeerStatus(statusMap);
       
       // Check if any peers are online
-      const onlineCount = Object.values(status).filter(isOnline => isOnline).length;
+      const onlineCount = Object.values(statusMap).filter(isOnline => isOnline).length;
       return onlineCount > 0;
     } catch (err) {
       console.error('[Gallery] Error checking peer status:', err);
@@ -412,6 +427,10 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
     }
     setFiles([]);
     setDeletingFiles(new Set());
+    
+    // Reload files from sync folder to ensure gallery is in sync
+    const sharedFiles = await window.electronAPI.getSharedFiles();
+    setFiles(sharedFiles);
   };
 
   // Filter and sort files
@@ -842,6 +861,7 @@ function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
   }, [file.path]);
 
   const isDownloading = progress && progress.progress < 100;
+  const isSending = progress && progress.direction === 'sending';
   
   // Check if file is an image type
   const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
@@ -860,16 +880,16 @@ function FileCard({ file, onDelete, onOpen, isDeleting, progress }) {
         </div>
       )}
       
-      {/* Downloading progress */}
+      {/* Downloading/Sending progress */}
       {isDownloading && (
-        <div className="file-card-overlay">
+        <div className={`file-card-overlay ${isSending ? 'sending' : 'receiving'}`}>
           <div className="file-progress-container">
             <div 
               className="file-progress-bar" 
               style={{ width: `${progress.progress}%` }}
             ></div>
           </div>
-          <span>{progress.progress}%</span>
+          <span>{isSending ? 'Sending' : 'Receiving'} {progress.progress}%</span>
         </div>
       )}
       

@@ -1022,7 +1022,21 @@ async function shareFilesInternal(files) {
     // Announce to all peers
     console.log(`[MAIN] Announcing ${file.name} to ${peers.length} peer(s)`);
     for (const peer of peers) {
-      await announceFile(peer.ip, sharedFile, profile);
+      // Send progress to renderer
+      const onProgress = (progress, bytesSent, totalBytes) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('file:progress', {
+            fileId: sharedFile.id,
+            fileName: sharedFile.name,
+            progress,
+            bytesSent,
+            totalBytes,
+            direction: 'sending',
+            peerName: peer.name,
+          });
+        }
+      };
+      await announceFile(peer.ip, sharedFile, profile, onProgress);
     }
 
     results.push(sharedFile);
@@ -1125,7 +1139,21 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
   for (const file of results) {
     console.log(`[MAIN] Announcing ${file.relativePath || file.name} to ${peers.length} peer(s)`);
     for (const peer of peers) {
-      await announceFile(peer.ip, file, profile);
+      // Send progress to renderer
+      const onProgress = (progress, bytesSent, totalBytes) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('file:progress', {
+            fileId: file.id,
+            fileName: file.name,
+            progress,
+            bytesSent,
+            totalBytes,
+            direction: 'sending',
+            peerName: peer.name,
+          });
+        }
+      };
+      await announceFile(peer.ip, file, profile, onProgress);
     }
   }
 

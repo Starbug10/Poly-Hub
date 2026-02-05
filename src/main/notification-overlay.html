@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:;">
     <title>File Notification</title>
     <style>
         * {
@@ -90,6 +90,51 @@
             margin-bottom: 12px;
         }
 
+        .sender-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .sender-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #ff6700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: #1a1a1a;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .sender-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .sender-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sender-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e8e8e8;
+            margin-bottom: 2px;
+        }
+
+        .sender-ip {
+            font-size: 11px;
+            color: #888;
+        }
+
         .file-name {
             font-size: 14px;
             color: #e8e8e8;
@@ -160,8 +205,15 @@
             <button class="close-btn" id="closeBtn">×</button>
         </div>
         <div class="notif-body">
+            <div class="sender-info">
+                <div class="sender-avatar" id="senderAvatar">?</div>
+                <div class="sender-details">
+                    <div class="sender-name" id="senderName">Unknown</div>
+                    <div class="sender-ip" id="senderIP">...</div>
+                </div>
+            </div>
             <div class="file-name" id="fileName">Loading...</div>
-            <div class="file-info" id="fileInfo">From: ...</div>
+            <div class="file-info" id="fileInfo">Size: ...</div>
             <div class="warning" id="warning" style="display: none;"></div>
         </div>
         <div class="notif-actions">
@@ -180,16 +232,38 @@
         const fileName = document.getElementById('fileName');
         const fileInfo = document.getElementById('fileInfo');
         const warning = document.getElementById('warning');
+        const senderAvatar = document.getElementById('senderAvatar');
+        const senderName = document.getElementById('senderName');
+        const senderIP = document.getElementById('senderIP');
 
         let fileData = null;
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
 
         // Receive file data
         ipcRenderer.on('notification:show', (event, data) => {
             fileData = data;
+            
+            // Sender info
+            senderName.textContent = data.from.name || 'Unknown';
+            senderIP.textContent = data.from.ip || '';
+            
+            // Profile picture or initial
+            if (data.from.profilePicture) {
+                senderAvatar.innerHTML = `<img src="${data.from.profilePicture}" alt="">`;
+            } else {
+                senderAvatar.textContent = (data.from.name || '?')[0].toUpperCase();
+            }
+            
+            // File info
             fileName.textContent = data.file.name;
-
-            const sizeMB = (data.file.size / (1024 * 1024)).toFixed(2);
-            fileInfo.textContent = `From: ${data.from.name} | Size: ${sizeMB} MB`;
+            fileInfo.textContent = `Size: ${formatBytes(data.file.size)} • Type: ${(data.file.type || 'FILE').toUpperCase()}`;
 
             if (data.exceedsLimit) {
                 warning.style.display = 'block';

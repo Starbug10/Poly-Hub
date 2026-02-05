@@ -207,6 +207,17 @@
   justify-content: center;
   margin: 0 auto;
   position: relative;
+  overflow: hidden;
+}
+
+.sidebar-profile-picture {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rounded-corners .sidebar-profile-icon {
+  border-radius: 50%;
 }
 
 .sidebar-profile-icon .status-indicator {

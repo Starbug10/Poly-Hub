@@ -349,12 +349,105 @@
   min-width: 70px;
 }
 
-/* Actions */
-.settings-actions {
-  padding-top: var(--space-4);
-  border-top: var(--border);
-  flex-shrink: 0;
-  margin-top: auto;
+/* Autosave Indicator */
+.autosave-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--color-success);
+  animation: fadeInOut 1.5s ease;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.autosave-indicator svg {
+  stroke: var(--color-success);
+}
+
+/* Profile Picture */
+.profile-picture-row {
+  padding: var(--space-4);
+}
+
+.profile-picture-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.profile-picture-preview {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.rounded-corners .profile-picture-preview {
+  border-radius: 50%;
+}
+
+.profile-picture-preview:hover {
+  border-color: var(--color-accent);
+}
+
+.profile-picture-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-picture-initial {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.profile-picture-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.profile-picture-preview:hover .profile-picture-overlay {
+  opacity: 1;
+}
+
+.profile-picture-overlay svg {
+  stroke: var(--color-text);
+}
+
+.remove-picture-btn {
+  font-size: var(--font-size-xs);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.remove-picture-btn:hover {
+  background: var(--color-error);
+  color: var(--color-bg);
 }
 
 /* Name Input */
@@ -545,6 +638,45 @@
 /* Peer Row with Status Indicator */
 .peer-row {
   gap: var(--space-3);
+}
+
+/* Peer Avatar */
+.peer-avatar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-accent);
+  overflow: hidden;
+}
+
+.rounded-corners .peer-avatar {
+  border-radius: 50%;
+}
+
+.peer-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.peer-avatar-initial {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-bg);
+  text-transform: uppercase;
+}
+
+.peer-avatar .peer-status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--color-surface);
 }
 
 .peer-status-indicator {

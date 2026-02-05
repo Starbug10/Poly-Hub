@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Settings.css';
 
-function Settings({ profile: initialProfile }) {
+function Settings({ profile: initialProfile, onProfileUpdate }) {
   const [settings, setSettings] = useState({
     syncFolder: null,
     maxFileSize: '5',
@@ -23,6 +23,9 @@ function Settings({ profile: initialProfile }) {
   const [appVersion, setAppVersion] = useState(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState(null);
+  const [profilePicture, setProfilePicture] = useState(null);
+  const fileInputRef = useRef(null);
+  const isInitialMount = useRef(true);
 
   // Discovery state
   const [pairingLink, setPairingLink] = useState('');
@@ -149,6 +152,7 @@ function Settings({ profile: initialProfile }) {
     setProfile(currentProfile);
     if (currentProfile) {
       setNewName(currentProfile.name);
+      setProfilePicture(currentProfile.profilePicture || null);
     }
 
     const currentPeers = await window.electronAPI.getPeers();
@@ -167,6 +171,24 @@ function Settings({ profile: initialProfile }) {
     setAppVersion(version);
   }
 
+  // Autosave settings whenever they change (skip initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    
+    const saveSettings = async () => {
+      await window.electronAPI.updateSettings(settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    };
+    
+    // Debounce the save to avoid too many writes
+    const timeoutId = setTimeout(saveSettings, 500);
+    return () => clearTimeout(timeoutId);
+  }, [settings]);
+
   // Helper function to format bytes
   function formatBytes(bytes) {
     if (bytes === 0) return '0 B';
@@ -176,12 +198,6 @@ function Settings({ profile: initialProfile }) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
-  const handleSave = async () => {
-    await window.electronAPI.updateSettings(settings);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
   const handleNameUpdate = async () => {
     if (!newName.trim() || newName === profile?.name) {
       setEditingName(false);
@@ -189,7 +205,56 @@ function Settings({ profile: initialProfile }) {
     }
     const updatedProfile = await window.electronAPI.updateProfile({ name: newName.trim() });
     setProfile(updatedProfile);
+    if (onProfileUpdate) onProfileUpdate(updatedProfile);
     setEditingName(false);
+  };
+
+  const handleProfilePictureChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Read file as base64
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target.result;
+      // Resize image if too large (max 200x200, max 100KB)
+      const resized = await resizeImage(base64, 200, 200);
+      setProfilePicture(resized);
+      const updatedProfile = await window.electronAPI.updateProfile({ profilePicture: resized });
+      setProfile(updatedProfile);
+      if (onProfileUpdate) onProfileUpdate(updatedProfile);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const resizeImage = (base64, maxWidth, maxHeight) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width *= ratio;
+          height *= ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = base64;
+    });
+  };
+
+  const handleRemoveProfilePicture = async () => {
+    setProfilePicture(null);
+    const updatedProfile = await window.electronAPI.updateProfile({ profilePicture: null });
+    setProfile(updatedProfile);
+    if (onProfileUpdate) onProfileUpdate(updatedProfile);
   };
 
   const handleMaxFileSizeChange = (e) => {
@@ -317,6 +382,46 @@ function Settings({ profile: initialProfile }) {
         <section className="settings-section">
           <h2 className="section-title">PROFILE</h2>
           <div className="settings-card">
+            {/* Profile Picture */}
+            <div className="setting-row profile-picture-row">
+              <div className="setting-label">
+                <span className="label-title">Profile Picture</span>
+                <span className="label-description">Visible to your connected peers</span>
+              </div>
+              <div className="setting-value profile-picture-value">
+                <div 
+                  className="profile-picture-preview"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {profilePicture ? (
+                    <img src={profilePicture} alt="Profile" className="profile-picture-img" />
+                  ) : (
+                    <span className="profile-picture-initial">
+                      {profile?.name?.[0]?.toUpperCase() || 'U'}
+                    </span>
+                  )}
+                  <div className="profile-picture-overlay">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                  </div>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  style={{ display: 'none' }}
+                />
+                {profilePicture && (
+                  <button onClick={handleRemoveProfilePicture} className="setting-btn remove-picture-btn">
+                    REMOVE
+                  </button>
+                )}
+              </div>
+            </div>
+            {/* Name */}
             <div className="setting-row">
               <div className="setting-label">
                 <span className="label-title">Name</span>
@@ -710,7 +815,12 @@ function Settings({ profile: initialProfile }) {
                 const isChecking = peerStatus[peer.ip] === undefined;
                 return (
                   <div key={peer.ip} className="setting-row peer-row">
-                    <div className="peer-status-indicator">
+                    <div className="peer-avatar">
+                      {peer.profilePicture ? (
+                        <img src={peer.profilePicture} alt="" className="peer-avatar-img" />
+                      ) : (
+                        <span className="peer-avatar-initial">{peer.name?.[0]?.toUpperCase() || '?'}</span>
+                      )}
                       <div className={`peer-status-dot ${isOnline ? 'online' : 'offline'}`} />
                     </div>
                     <div className="setting-label">
@@ -729,12 +839,15 @@ function Settings({ profile: initialProfile }) {
           </div>
         </section>
 
-        {/* Save Button */}
-        <div className="settings-actions">
-          <button onClick={handleSave} className="primary">
-            {saved ? 'SAVED!' : 'SAVE SETTINGS'}
-          </button>
-        </div>
+        {/* Autosave Indicator */}
+        {saved && (
+          <div className="autosave-indicator">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            SAVED
+          </div>
+        )}
 
         {/* Version Info */}
         {appVersion && (
