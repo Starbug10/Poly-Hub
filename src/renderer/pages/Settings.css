@@ -710,6 +710,19 @@
 
 .peer-status-dot.online {
   background-color: var(--color-success);
+  animation: pulse-online 2s ease-in-out infinite;
+}
+
+@keyframes pulse-online {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .peer-status-dot.offline {
