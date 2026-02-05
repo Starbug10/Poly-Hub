@@ -7,6 +7,7 @@ import Gallery from './pages/Gallery';
 import Transfers from './pages/Transfers';
 import Statistics from './pages/Statistics';
 import Settings from './pages/Settings';
+import NotificationManager from './components/NotificationManager';
 import './styles/app.css';
 
 function App() {
@@ -178,6 +179,8 @@ function App() {
           </>
         )}
       </div>
+      {/* Notification Manager - always rendered */}
+      {!needsOnboarding && <NotificationManager />}
     </div>
   );
 }

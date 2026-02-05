@@ -11,7 +11,6 @@ const { setupAutoUpdater } = require('./autoUpdater');
 
 let mainWindow;
 let overlayWindow = null;
-let notificationWindows = []; // Track multiple notification windows
 let peerServer;
 let folderWatcher = null;
 let receivingFiles = new Set(); // Track files currently being received to prevent duplicates
@@ -51,7 +50,7 @@ const isDev = !app.isPackaged;
 // Auto-start Tailscale on app launch
 function startTailscale() {
   console.log('[MAIN] Attempting to start Tailscale...');
-  
+
   // Try multiple Tailscale executable locations
   const tailscalePaths = [
     'C:\\Program Files\\Tailscale\\tailscale-ipn.exe',
@@ -80,7 +79,7 @@ function startTailscale() {
 function createTray() {
   const iconPath = path.join(__dirname, '../../assets/icon.png');
   tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }));
-  
+
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Show Poly-Hub',
@@ -184,7 +183,7 @@ function createWindow() {
     if (!isQuitting) {
       event.preventDefault();
       mainWindow.hide();
-      
+
       // Show notification on first minimize
       const settings = getSettings();
       if (settings.notifications && !settings.hasSeenTrayNotification) {
@@ -276,52 +275,6 @@ function toggleOverlay() {
   } else {
     createOverlayWindow();
   }
-}
-
-// Create notification window for incoming files
-function createNotificationWindow(fileData) {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
-
-  const notifWidth = 400;
-  const notifHeight = 200;
-  const notifX = width - notifWidth - 20;
-  const notifY = 20 + (notificationWindows.length * (notifHeight + 10)); // Stack notifications
-
-  const notifWindow = new BrowserWindow({
-    width: notifWidth,
-    height: notifHeight,
-    x: notifX,
-    y: notifY,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    movable: false,
-    minimizable: false,
-    maximizable: false,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    },
-  });
-
-  notifWindow.loadFile(path.join(__dirname, 'notification-overlay.html'));
-
-  notifWindow.once('ready-to-show', () => {
-    notifWindow.webContents.send('notification:show', fileData);
-  });
-
-  notifWindow.on('closed', () => {
-    const index = notificationWindows.indexOf(notifWindow);
-    if (index > -1) {
-      notificationWindows.splice(index, 1);
-    }
-  });
-
-  notificationWindows.push(notifWindow);
-  console.log('[MAIN] Notification window created');
 }
 
 // Start peer server for incoming connections
@@ -421,29 +374,32 @@ async function startPeerServer() {
       }
     }
 
-    // Show notification window if file exceeds limits or notifications enabled
-    if (settings.notifications && exceedsLimit) {
-      createNotificationWindow({
-        file: data.file,
-        from: data.from,
-        exceedsLimit,
-        limitType,
-        limitValue,
-      });
+    // Always show notification if notifications are enabled (user can accept/decline)
+    if (settings.notifications) {
+      console.log('[MAIN] Notifications enabled, sending to renderer...');
+      // Send notification to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('[MAIN] Sending file:notification event with data:', {
+          fileName: data.file.name,
+          fromName: data.from.name,
+          exceedsLimit,
+        });
+        mainWindow.webContents.send('file:notification', {
+          file: data.file,
+          from: data.from,
+          exceedsLimit,
+          limitType,
+          limitValue,
+        });
+      } else {
+        console.log('[MAIN] ERROR: mainWindow is null or destroyed!');
+      }
     } else {
-      // Auto-accept if within limits
+      console.log('[MAIN] Notifications disabled, auto-accepting file');
+      // Auto-accept if notifications are disabled
       addSharedFile(file);
       recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
       mainWindow.webContents.send('file:received', file);
-
-      // Show system notification
-      if (settings.notifications) {
-        const { Notification } = require('electron');
-        new Notification({
-          title: 'File Received',
-          body: `${data.from.name} shared ${data.file.name}`,
-        }).show();
-      }
     }
   });
 
@@ -865,8 +821,8 @@ ipcMain.on('overlay:files-dropped', async (event, filePaths) => {
   }, 1000);
 });
 
-// Notification window handlers
-ipcMain.on('notification:accept', (event, data) => {
+// Notification handlers (new in-app system)
+ipcMain.handle('notification:accept', async (event, data) => {
   console.log('[MAIN] File accepted:', data.file.name);
 
   const file = {
@@ -877,19 +833,15 @@ ipcMain.on('notification:accept', (event, data) => {
 
   addSharedFile(file);
   recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
-  mainWindow.webContents.send('file:received', file);
 
-  const settings = getSettings();
-  if (settings.notifications) {
-    const { Notification } = require('electron');
-    new Notification({
-      title: 'File Accepted',
-      body: `${data.file.name} added to gallery`,
-    }).show();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('file:received', file);
   }
+
+  return { success: true };
 });
 
-ipcMain.on('notification:decline', (event, data) => {
+ipcMain.handle('notification:decline', async (event, data) => {
   console.log('[MAIN] File declined:', data.file.name);
 
   // Delete the file from disk
@@ -901,30 +853,8 @@ ipcMain.on('notification:decline', (event, data) => {
       console.error('[MAIN] Error deleting declined file:', err);
     }
   }
-});
 
-ipcMain.on('notification:close', (event, data) => {
-  console.log('[MAIN] Notification closed without action');
-  // Treat as decline
-  if (data && data.file && data.file.path && fs.existsSync(data.file.path)) {
-    try {
-      fs.unlinkSync(data.file.path);
-    } catch (err) {
-      console.error('[MAIN] Error deleting file:', err);
-    }
-  }
-});
-
-ipcMain.on('notification:timeout', (event, data) => {
-  console.log('[MAIN] Notification timed out');
-  // Treat as decline
-  if (data && data.file && data.file.path && fs.existsSync(data.file.path)) {
-    try {
-      fs.unlinkSync(data.file.path);
-    } catch (err) {
-      console.error('[MAIN] Error deleting file:', err);
-    }
-  }
+  return { success: true };
 });
 
 // App info

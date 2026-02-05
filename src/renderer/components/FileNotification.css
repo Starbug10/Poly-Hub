@@ -1,0 +1,212 @@
+.file-notification {
+    position: fixed;
+    right: 20px;
+    width: 380px;
+    background: var(--color-bg-secondary);
+    border: 2px solid var(--color-accent);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    z-index: 10000;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.file-notification.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.notification-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+}
+
+.notification-countdown {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.countdown-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.countdown-text {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    position: relative;
+    z-index: 1;
+}
+
+.notification-body {
+    padding: 16px;
+}
+
+.sender-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.sender-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--color-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--color-bg-primary);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.sender-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.sender-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.sender-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sender-ip {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    margin-bottom: 12px;
+}
+
+.file-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.file-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-meta {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.notification-warning {
+    font-size: 11px;
+    color: var(--color-accent);
+    padding: 10px 12px;
+    border: 1px solid var(--color-accent);
+    background: rgba(255, 103, 0, 0.1);
+    margin-bottom: 12px;
+}
+
+.notification-actions {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 16px;
+}
+
+.notification-btn {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 2px solid;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.btn-accept {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.btn-accept:hover {
+    background: var(--color-accent);
+    color: var(--color-bg-primary);
+}
+
+.btn-decline {
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.btn-decline:hover {
+    border-color: var(--color-text-secondary);
+    color: var(--color-text-primary);
+}
+
+/* Rounded corners support */
+.rounded-corners .file-notification {
+    border-radius: 8px;
+}
+
+.rounded-corners .file-info {
+    border-radius: 4px;
+}
+
+.rounded-corners .notification-warning {
+    border-radius: 4px;
+}
+
+.rounded-corners .notification-btn {
+    border-radius: 4px;
+}

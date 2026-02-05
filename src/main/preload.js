@@ -58,6 +58,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
   getStorageStats: () => ipcRenderer.invoke('settings:getStorageStats'),
 
+  // File notifications (new system)
+  acceptFile: (data) => ipcRenderer.invoke('notification:accept', data),
+  declineFile: (data) => ipcRenderer.invoke('notification:decline', data),
+
   // Event listeners
   onPeerAdded: (callback) => {
     ipcRenderer.on('peer:added', (event, peer) => callback(peer));
@@ -79,6 +83,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onFileAutoAdded: (callback) => {
     ipcRenderer.on('file:auto-added', (event, file) => callback(file));
+  },
+  onFileNotification: (callback) => {
+    ipcRenderer.on('file:notification', (event, data) => callback(data));
   },
   onTransferUpdated: (callback) => {
     ipcRenderer.on('transfer:updated', (event, transfer) => callback(transfer));
