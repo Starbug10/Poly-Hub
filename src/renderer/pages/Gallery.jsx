@@ -647,7 +647,12 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
               {settings.showPeerProfiles ? (
                 <div className="gallery-peer-profiles">
                   {peers.map((peer) => (
-                    <div key={peer.ip} className="gallery-peer-profile">
+                    <div
+                      key={peer.ip}
+                      className="gallery-peer-profile"
+                      onClick={() => checkPeersStatus()}
+                      title="Click to check connection"
+                    >
                       <div className="gallery-peer-avatar">
                         {peer.profilePicture ? (
                           <img src={peer.profilePicture} alt="" className="gallery-peer-avatar-img" />
@@ -670,6 +675,8 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
                   className="gallery-peer-count"
                   onMouseEnter={() => setShowPeerTooltip(true)}
                   onMouseLeave={() => setShowPeerTooltip(false)}
+                  onClick={() => checkPeersStatus()}
+                  title="Click to check peer status"
                 >
                   <span className="peer-count-number">{peers.length}</span>
                   <span className="peer-count-label">PEER{peers.length !== 1 ? 'S' : ''}</span>
