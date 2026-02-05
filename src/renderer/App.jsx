@@ -11,6 +11,23 @@ function App() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tailscaleStatus, setTailscaleStatus] = useState(null);
+  const [peerStatus, setPeerStatus] = useState({}); // Global peer status
+
+  // Function to check all peer statuses
+  const checkAllPeersStatus = async () => {
+    try {
+      const statusResults = await window.electronAPI.checkAllPeersStatus();
+      const statusMap = {};
+      statusResults.forEach(result => {
+        statusMap[result.ip] = result.online;
+      });
+      setPeerStatus(statusMap);
+      return statusMap;
+    } catch (err) {
+      console.error('Failed to check peer status:', err);
+      return {};
+    }
+  };
 
   useEffect(() => {
     async function init() {
@@ -22,22 +39,27 @@ function App() {
       const existingProfile = await window.electronAPI.getProfile();
       setProfile(existingProfile);
 
+      // Check peer status if profile exists
+      if (existingProfile) {
+        checkAllPeersStatus();
+      }
+
       // Apply saved theme
       const settings = await window.electronAPI.getSettings();
       if (settings?.theme) {
         document.documentElement.setAttribute('data-theme', settings.theme);
       }
-      
+
       // Apply rounded corners
       if (settings?.roundedCorners) {
         document.documentElement.classList.add('rounded-corners');
       }
-      
+
       // Apply compact sidebar
       if (settings?.compactSidebar) {
         document.documentElement.classList.add('compact-sidebar');
       }
-      
+
       // Apply accent color
       if (settings?.accentColor) {
         document.documentElement.style.setProperty('--color-accent', settings.accentColor);
@@ -78,6 +100,15 @@ function App() {
     }
   }, [tailscaleStatus?.running, profile]);
 
+  // Check peer status periodically
+  useEffect(() => {
+    if (!profile) return;
+
+    // Check every 10 seconds
+    const interval = setInterval(checkAllPeersStatus, 10000);
+    return () => clearInterval(interval);
+  }, [profile]);
+
   const handleProfileUpdate = (updatedProfile) => {
     setProfile(updatedProfile);
   };
@@ -116,7 +147,18 @@ function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/gallery" replace />} />
                 <Route path="/gallery" element={<Gallery tailscaleOffline={tailscaleOffline} />} />
-                <Route path="/settings" element={<Settings profile={profile} onProfileUpdate={handleProfileUpdate} />} />
+                <Route
+                  path="/settings"
+                  element={
+                    <Settings
+                      profile={profile}
+                      onProfileUpdate={handleProfileUpdate}
+                      peerStatus={peerStatus}
+                      onPeerStatusUpdate={setPeerStatus}
+                      onRefreshPeerStatus={checkAllPeersStatus}
+                    />
+                  }
+                />
               </Routes>
             </main>
           </>

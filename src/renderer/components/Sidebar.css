@@ -207,7 +207,8 @@
   justify-content: center;
   margin: 0 auto;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  /* Changed from hidden to allow status indicator to overlap */
 }
 
 .sidebar-profile-picture {
@@ -220,15 +221,20 @@
   border-radius: 50%;
 }
 
+.rounded-corners .sidebar-profile-picture {
+  border-radius: 50%;
+}
+
 .sidebar-profile-icon .status-indicator {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 8px;
-  height: 8px;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background-color: var(--color-success);
   border: 2px solid var(--color-surface);
+  z-index: 10;
 }
 
 .sidebar-profile-icon .status-indicator.offline {

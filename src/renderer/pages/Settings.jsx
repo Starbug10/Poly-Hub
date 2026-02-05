@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Settings.css';
 
-function Settings({ profile: initialProfile, onProfileUpdate }) {
+function Settings({ profile: initialProfile, onProfileUpdate, peerStatus: externalPeerStatus, onPeerStatusUpdate, onRefreshPeerStatus }) {
   const [settings, setSettings] = useState({
     syncFolder: null,
     maxFileSize: '5',
@@ -15,7 +15,7 @@ function Settings({ profile: initialProfile, onProfileUpdate }) {
   });
   const [profile, setProfile] = useState(initialProfile);
   const [peers, setPeers] = useState([]);
-  const [peerStatus, setPeerStatus] = useState({}); // Track online/offline status
+  const [peerStatus, setPeerStatus] = useState(externalPeerStatus || {}); // Use external status if provided
   const [saved, setSaved] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
@@ -53,6 +53,13 @@ function Settings({ profile: initialProfile, onProfileUpdate }) {
     };
   }, []);
 
+  // Sync external peer status with local state
+  useEffect(() => {
+    if (externalPeerStatus) {
+      setPeerStatus(externalPeerStatus);
+    }
+  }, [externalPeerStatus]);
+
   // Check peer status periodically
   useEffect(() => {
     if (peers.length === 0) return;
@@ -68,6 +75,22 @@ function Settings({ profile: initialProfile, onProfileUpdate }) {
   const [checkingPeers, setCheckingPeers] = useState(false);
 
   const checkPeersStatus = async () => {
+    // Use external refresh function if provided, otherwise use local logic
+    if (onRefreshPeerStatus) {
+      setCheckingPeers(true);
+      try {
+        const statusMap = await onRefreshPeerStatus();
+        setPeerStatus(statusMap);
+        if (onPeerStatusUpdate) {
+          onPeerStatusUpdate(statusMap);
+        }
+      } finally {
+        setCheckingPeers(false);
+      }
+      return;
+    }
+
+    // Fallback to local checking
     setCheckingPeers(true);
     try {
       const statusResults = await window.electronAPI.checkAllPeersStatus();
@@ -76,6 +99,9 @@ function Settings({ profile: initialProfile, onProfileUpdate }) {
         statusMap[result.ip] = result.online;
       });
       setPeerStatus(statusMap);
+      if (onPeerStatusUpdate) {
+        onPeerStatusUpdate(statusMap);
+      }
     } finally {
       setCheckingPeers(false);
     }
@@ -177,13 +203,13 @@ function Settings({ profile: initialProfile, onProfileUpdate }) {
       isInitialMount.current = false;
       return;
     }
-    
+
     const saveSettings = async () => {
       await window.electronAPI.updateSettings(settings);
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     };
-    
+
     // Debounce the save to avoid too many writes
     const timeoutId = setTimeout(saveSettings, 500);
     return () => clearTimeout(timeoutId);
@@ -233,13 +259,13 @@ function Settings({ profile: initialProfile, onProfileUpdate }) {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         let { width, height } = img;
-        
+
         if (width > maxWidth || height > maxHeight) {
           const ratio = Math.min(maxWidth / width, maxHeight / height);
           width *= ratio;
           height *= ratio;
         }
-        
+
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
@@ -389,7 +415,7 @@ function Settings({ profile: initialProfile, onProfileUpdate }) {
                 <span className="label-description">Visible to your connected peers</span>
               </div>
               <div className="setting-value profile-picture-value">
-                <div 
+                <div
                   className="profile-picture-preview"
                   onClick={() => fileInputRef.current?.click()}
                 >
