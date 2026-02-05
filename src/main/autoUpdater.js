@@ -1,11 +1,23 @@
 const { autoUpdater } = require('electron-updater');
 const { dialog } = require('electron');
+const log = require('electron-log');
+
+// Configure logging
+log.transports.file.level = 'info';
+autoUpdater.logger = log;
 
 let mainWindow;
 
 // Configure auto-updater
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
+
+// Set update feed URL explicitly
+autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'Starbug10',
+    repo: 'Poly-Hub'
+});
 
 function setupAutoUpdater(window) {
     mainWindow = window;
@@ -28,6 +40,8 @@ function setupAutoUpdater(window) {
 
     autoUpdater.on('update-available', (info) => {
         console.log('[AUTO-UPDATER] Update available:', info.version);
+        console.log('[AUTO-UPDATER] Release date:', info.releaseDate);
+        console.log('[AUTO-UPDATER] Files:', info.files);
 
         dialog.showMessageBox(mainWindow, {
             type: 'info',
@@ -40,7 +54,21 @@ function setupAutoUpdater(window) {
         }).then((result) => {
             if (result.response === 0) {
                 console.log('[AUTO-UPDATER] User accepted update, downloading...');
-                autoUpdater.downloadUpdate();
+                console.log('[AUTO-UPDATER] Download URL:', autoUpdater.getFeedURL());
+
+                try {
+                    autoUpdater.downloadUpdate();
+                    console.log('[AUTO-UPDATER] Download started successfully');
+                } catch (err) {
+                    console.error('[AUTO-UPDATER] Failed to start download:', err);
+                    dialog.showMessageBox(mainWindow, {
+                        type: 'error',
+                        title: 'Download Failed',
+                        message: 'Failed to start download',
+                        detail: err.message,
+                        buttons: ['OK']
+                    });
+                }
 
                 // Show downloading notification
                 if (mainWindow && !mainWindow.isDestroyed()) {
@@ -58,6 +86,17 @@ function setupAutoUpdater(window) {
 
     autoUpdater.on('error', (err) => {
         console.error('[AUTO-UPDATER] Error:', err);
+        console.error('[AUTO-UPDATER] Error message:', err.message);
+        console.error('[AUTO-UPDATER] Error stack:', err.stack);
+
+        // Show error to user
+        dialog.showMessageBox(mainWindow, {
+            type: 'error',
+            title: 'Update Error',
+            message: 'Failed to download update',
+            detail: `Error: ${err.message}\n\nPlease try downloading the update manually from GitHub.`,
+            buttons: ['OK']
+        });
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
