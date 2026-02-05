@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import './Gallery.css';
 
 function Gallery({ tailscaleOffline: propTailscaleOffline }) {
@@ -19,6 +19,8 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
   const [noPeersOnline, setNoPeersOnline] = useState(false); // Show warning when no peers online
   const [pendingAction, setPendingAction] = useState(null); // Store action to retry
   const dragCounterRef = useRef(0);
+  const fileProgressRef = useRef({}); // Ref to track progress without causing re-renders
+  const progressUpdateTimerRef = useRef(null); // Throttle progress updates
 
   // Sync with prop
   useEffect(() => {
@@ -56,23 +58,40 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
       });
     });
 
-    // Listen for file progress
+    // Listen for file progress - throttled to reduce re-renders during drag-drop
     window.electronAPI.onFileProgress((progress) => {
       console.log('[Gallery] File progress:', progress.fileName, progress.progress + '%', progress.direction || 'receiving');
+      
+      // Store in ref immediately (no re-render)
+      fileProgressRef.current = {
+        ...fileProgressRef.current,
+        [progress.fileId]: progress,
+      };
+      
       if (progress.progress >= 100) {
         // Clear progress after completion with a small delay for visual feedback
         setTimeout(() => {
+          delete fileProgressRef.current[progress.fileId];
           setFileProgress((prev) => {
             const updated = { ...prev };
             delete updated[progress.fileId];
             return updated;
           });
         }, 1000);
+        // Immediately update state for completion
+        setFileProgress((prev) => ({
+          ...prev,
+          [progress.fileId]: progress,
+        }));
+      } else {
+        // Throttle state updates to every 500ms to prevent lag during drag-drop
+        if (!progressUpdateTimerRef.current) {
+          progressUpdateTimerRef.current = setTimeout(() => {
+            setFileProgress({ ...fileProgressRef.current });
+            progressUpdateTimerRef.current = null;
+          }, 500);
+        }
       }
-      setFileProgress((prev) => ({
-        ...prev,
-        [progress.fileId]: progress,
-      }));
     });
 
     // Listen for peer updates
@@ -101,6 +120,11 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
       window.electronAPI.removeAllListeners('file:progress');
       window.electronAPI.removeAllListeners('peer:updated');
       window.electronAPI.removeAllListeners('file:auto-added');
+      // Clear the progress update timer
+      if (progressUpdateTimerRef.current) {
+        clearTimeout(progressUpdateTimerRef.current);
+        progressUpdateTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -621,7 +645,12 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
                     <div className="peer-tooltip-title">CONNECTED PEERS</div>
                     {peers.map((peer) => (
                       <div key={peer.ip} className="peer-tooltip-item">
-                        <div className="peer-tooltip-status">
+                        <div className="peer-tooltip-avatar">
+                          {peer.profilePicture ? (
+                            <img src={peer.profilePicture} alt="" className="peer-tooltip-avatar-img" />
+                          ) : (
+                            <span className="peer-tooltip-avatar-initial">{(peer.name || '?')[0].toUpperCase()}</span>
+                          )}
                           <span className={`peer-tooltip-status-dot ${peerStatus[peer.ip] ? 'online' : 'offline'}`}></span>
                         </div>
                         <div className="peer-tooltip-info">

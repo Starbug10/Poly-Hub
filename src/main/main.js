@@ -295,6 +295,17 @@ async function startPeerServer() {
     console.log(`[MAIN] File progress: ${data.fileName} - ${data.progress}%`);
     // Track this file as being received using localPath directly
     if (data.localPath) {
+      // Show notification when file starts receiving (first progress event for this file)
+      if (!receivingFiles.has(data.localPath)) {
+        const settings = getSettings();
+        if (settings.notifications) {
+          const { Notification } = require('electron');
+          new Notification({
+            title: 'Receiving File',
+            body: `Receiving ${data.fileName} from peer...`,
+          }).show();
+        }
+      }
       receivingFiles.add(data.localPath);
     }
     mainWindow.webContents.send('file:progress', data);
