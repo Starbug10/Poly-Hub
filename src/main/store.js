@@ -138,6 +138,7 @@ function getSettings() {
         ...settings,
         maxFileSize: (settings.maxFileSize === null || settings.maxFileSize === undefined || settings.maxFileSize === '') ? 5 : settings.maxFileSize,
         maxStorageSize: (settings.maxStorageSize === null || settings.maxStorageSize === undefined || settings.maxStorageSize === '') ? 5 : settings.maxStorageSize,
+        notifications: settings.notifications !== false, // Default to true if undefined
         _migrated: true, // Mark as migrated so we don't override user changes
       };
 
@@ -147,10 +148,21 @@ function getSettings() {
       return updatedSettings;
     } else {
       // User already had values set, just mark as migrated
-      const updatedSettings = { ...settings, _migrated: true };
+      const updatedSettings = {
+        ...settings,
+        notifications: settings.notifications !== false, // Ensure notifications defaults to true
+        _migrated: true
+      };
       store.set('settings', updatedSettings);
       return updatedSettings;
     }
+  }
+
+  // Ensure notifications is always defined (backwards compatibility)
+  if (settings.notifications === undefined) {
+    const updatedSettings = { ...settings, notifications: true };
+    store.set('settings', updatedSettings);
+    return updatedSettings;
   }
 
   return settings;

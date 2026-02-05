@@ -11,11 +11,17 @@ const { setupAutoUpdater } = require('./autoUpdater');
 
 let mainWindow;
 let overlayWindow = null;
+let notificationWindows = []; // Track notification windows
 let peerServer;
 let folderWatcher = null;
 let receivingFiles = new Set(); // Track files currently being received to prevent duplicates
 let tray = null;
 let isQuitting = false;
+
+// Notification batching
+let pendingNotifications = [];
+let batchTimer = null;
+const BATCH_WINDOW_MS = 2000; // 2 seconds to group files
 
 // Transfer tracking (used by Transfers page)
 // transferId format:
@@ -186,7 +192,8 @@ function createWindow() {
 
       // Show notification on first minimize
       const settings = getSettings();
-      if (settings.notifications && !settings.hasSeenTrayNotification) {
+      const notificationsEnabled = settings.notifications !== false;
+      if (notificationsEnabled && !settings.hasSeenTrayNotification) {
         const { Notification } = require('electron');
         new Notification({
           title: 'Poly-Hub Running in Background',
@@ -277,6 +284,331 @@ function toggleOverlay() {
   }
 }
 
+// Create notification window (system overlay)
+function createNotificationWindow(notificationData) {
+  const { screen } = require('electron');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  // Calculate position (stack notifications vertically)
+  const notificationWidth = 380;
+  const notificationHeight = 280;
+  const margin = 20;
+  const stackOffset = notificationHeight + 10;
+
+  // Find available position
+  let yPosition = margin;
+  for (let i = 0; i < notificationWindows.length; i++) {
+    yPosition += stackOffset;
+  }
+
+  const notificationWindow = new BrowserWindow({
+    width: notificationWidth,
+    height: notificationHeight,
+    x: width - notificationWidth - margin,
+    y: yPosition,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    closable: true,
+    focusable: false,
+    show: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  const notificationPath = isDev
+    ? path.join(__dirname, 'notification-window.html')
+    : path.join(__dirname, '../../src/main/notification-window.html');
+
+  notificationWindow.loadFile(notificationPath);
+
+  notificationWindow.once('ready-to-show', () => {
+    notificationWindow.show();
+
+    // Get settings and profile for theming
+    const settings = getSettings();
+    const profile = getProfile();
+
+    // Send notification data with settings and profile
+    notificationWindow.webContents.send('notification-data', {
+      ...notificationData,
+      settings: {
+        theme: settings.theme || 'dark',
+        accentColor: settings.accentColor || '#ff6700',
+        roundedCorners: settings.roundedCorners || false,
+      },
+      profile,
+    });
+  });
+
+  // Handle notification response - use unique handler per window
+  const responseHandler = (event, response) => {
+    // Only handle if this event is from this window
+    if (event.sender !== notificationWindow.webContents) return;
+
+    console.log('[MAIN] Notification response:', response.action);
+
+    if (response.action === 'accept') {
+      // Accept file
+      const file = {
+        ...response.data.file,
+        from: response.data.from,
+        receivedAt: Date.now(),
+      };
+      addSharedFile(file);
+      recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('file:received', file);
+      }
+    } else if (response.action === 'decline') {
+      // Delete file from disk
+      const filePath = response.data.file?.path;
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+          console.log('[MAIN] Declined file deleted from disk:', filePath);
+        } catch (err) {
+          console.error('[MAIN] Error deleting declined file:', err);
+        }
+      }
+    }
+
+    // Remove handler
+    ipcMain.removeListener('notification-response', responseHandler);
+
+    // Close notification window
+    const index = notificationWindows.indexOf(notificationWindow);
+    if (index > -1) {
+      notificationWindows.splice(index, 1);
+    }
+
+    if (!notificationWindow.isDestroyed()) {
+      notificationWindow.close();
+    }
+
+    // Reposition remaining notifications
+    repositionNotifications();
+  };
+
+  ipcMain.on('notification-response', responseHandler);
+
+  notificationWindow.on('closed', () => {
+    const index = notificationWindows.indexOf(notificationWindow);
+    if (index > -1) {
+      notificationWindows.splice(index, 1);
+    }
+    repositionNotifications();
+  });
+
+  notificationWindows.push(notificationWindow);
+  console.log('[MAIN] Notification window created');
+}
+
+// Reposition notification windows after one closes
+function repositionNotifications() {
+  const { screen } = require('electron');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width } = primaryDisplay.workAreaSize;
+
+  const notificationWidth = 380;
+  const notificationHeight = 280;
+  const margin = 20;
+  const stackOffset = notificationHeight + 10;
+
+  notificationWindows.forEach((win, index) => {
+    if (!win.isDestroyed()) {
+      const yPosition = margin + (index * stackOffset);
+      win.setBounds({
+        x: width - notificationWidth - margin,
+        y: yPosition,
+        width: notificationWidth,
+        height: notificationHeight,
+      });
+    }
+  });
+}
+
+// Add notification to batch queue
+function queueNotification(notificationData) {
+  pendingNotifications.push(notificationData);
+
+  // Clear existing timer
+  if (batchTimer) {
+    clearTimeout(batchTimer);
+  }
+
+  // Set new timer to process batch
+  batchTimer = setTimeout(() => {
+    processBatchedNotifications();
+  }, BATCH_WINDOW_MS);
+}
+
+// Process batched notifications
+function processBatchedNotifications() {
+  if (pendingNotifications.length === 0) return;
+
+  if (pendingNotifications.length === 1) {
+    // Single file - show individual notification
+    createNotificationWindow(pendingNotifications[0]);
+  } else {
+    // Multiple files - show batch notification
+    createBatchNotificationWindow(pendingNotifications);
+  }
+
+  // Clear the queue
+  pendingNotifications = [];
+  batchTimer = null;
+}
+
+// Create batch notification window for multiple files
+function createBatchNotificationWindow(notifications) {
+  const { screen } = require('electron');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  const notificationWidth = 380;
+  const notificationHeight = 280;
+  const margin = 20;
+  const stackOffset = notificationHeight + 10;
+
+  let yPosition = margin;
+  for (let i = 0; i < notificationWindows.length; i++) {
+    yPosition += stackOffset;
+  }
+
+  const notificationWindow = new BrowserWindow({
+    width: notificationWidth,
+    height: notificationHeight,
+    x: width - notificationWidth - margin,
+    y: yPosition,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    closable: true,
+    focusable: false,
+    show: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  const notificationPath = isDev
+    ? path.join(__dirname, 'notification-batch-window.html')
+    : path.join(__dirname, '../../src/main/notification-batch-window.html');
+
+  notificationWindow.loadFile(notificationPath);
+
+  notificationWindow.once('ready-to-show', () => {
+    notificationWindow.show();
+
+    const settings = getSettings();
+    const profile = getProfile();
+
+    // Calculate total size
+    const totalSize = notifications.reduce((sum, n) => sum + (n.file?.size || 0), 0);
+
+    // Get sender info from first notification
+    const sender = notifications[0].from;
+
+    notificationWindow.webContents.send('notification-data', {
+      fileCount: notifications.length,
+      totalSize,
+      from: sender,
+      files: notifications.map(n => n.file),
+      settings: {
+        theme: settings.theme || 'dark',
+        accentColor: settings.accentColor || '#ff6700',
+        roundedCorners: settings.roundedCorners || false,
+      },
+      profile,
+    });
+  });
+
+  const responseHandler = (event, response) => {
+    if (event.sender !== notificationWindow.webContents) return;
+
+    console.log('[MAIN] Batch notification response:', response.action, 'for', notifications.length, 'files');
+
+    if (response.action === 'accept') {
+      // Accept all files
+      notifications.forEach(notif => {
+        const file = {
+          ...notif.file,
+          from: notif.from,
+          receivedAt: Date.now(),
+        };
+        addSharedFile(file);
+        recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
+      });
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        notifications.forEach(notif => {
+          const file = {
+            ...notif.file,
+            from: notif.from,
+            receivedAt: Date.now(),
+          };
+          mainWindow.webContents.send('file:received', file);
+        });
+      }
+    } else if (response.action === 'decline') {
+      // Delete all files
+      notifications.forEach(notif => {
+        const filePath = notif.file?.path;
+        if (filePath && fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+            console.log('[MAIN] Declined file deleted:', filePath);
+          } catch (err) {
+            console.error('[MAIN] Error deleting file:', err);
+          }
+        }
+      });
+    }
+
+    ipcMain.removeListener('notification-response', responseHandler);
+
+    const index = notificationWindows.indexOf(notificationWindow);
+    if (index > -1) {
+      notificationWindows.splice(index, 1);
+    }
+
+    if (!notificationWindow.isDestroyed()) {
+      notificationWindow.close();
+    }
+
+    repositionNotifications();
+  };
+
+  ipcMain.on('notification-response', responseHandler);
+
+  notificationWindow.on('closed', () => {
+    const index = notificationWindows.indexOf(notificationWindow);
+    if (index > -1) {
+      notificationWindows.splice(index, 1);
+    }
+    repositionNotifications();
+  });
+
+  notificationWindows.push(notificationWindow);
+  console.log('[MAIN] Batch notification window created for', notifications.length, 'files');
+}
+
 // Start peer server for incoming connections
 async function startPeerServer() {
   peerServer = new PeerServer();
@@ -292,7 +624,8 @@ async function startPeerServer() {
 
       // Show notification
       const settings = getSettings();
-      if (settings.notifications) {
+      const notificationsEnabled = settings.notifications !== false;
+      if (notificationsEnabled) {
         const { Notification } = require('electron');
         new Notification({
           title: 'New Peer Connected',
@@ -375,31 +708,28 @@ async function startPeerServer() {
     }
 
     // Always show notification if notifications are enabled (user can accept/decline)
-    if (settings.notifications) {
-      console.log('[MAIN] Notifications enabled, sending to renderer...');
-      // Send notification to renderer
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        console.log('[MAIN] Sending file:notification event with data:', {
-          fileName: data.file.name,
-          fromName: data.from.name,
-          exceedsLimit,
-        });
-        mainWindow.webContents.send('file:notification', {
-          file: data.file,
-          from: data.from,
-          exceedsLimit,
-          limitType,
-          limitValue,
-        });
-      } else {
-        console.log('[MAIN] ERROR: mainWindow is null or destroyed!');
-      }
+    // Default to true if undefined (for backwards compatibility)
+    const notificationsEnabled = settings.notifications !== false;
+    console.log('[MAIN] Notifications enabled:', notificationsEnabled, '(raw value:', settings.notifications, ')');
+
+    if (notificationsEnabled) {
+      console.log('[MAIN] Queueing notification for batching...');
+      // Queue notification for batching
+      queueNotification({
+        file: data.file,
+        from: data.from,
+        exceedsLimit,
+        limitType,
+        limitValue,
+      });
     } else {
-      console.log('[MAIN] Notifications disabled, auto-accepting file');
+      console.log('[MAIN] Notifications explicitly disabled, auto-accepting file');
       // Auto-accept if notifications are disabled
       addSharedFile(file);
       recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
-      mainWindow.webContents.send('file:received', file);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('file:received', file);
+      }
     }
   });
 
@@ -416,8 +746,9 @@ async function startPeerServer() {
       if (!receivingFiles.has(data.localPath)) {
         console.log(`[MAIN] New file transfer detected: ${data.fileName}`);
         const settings = getSettings();
-        console.log(`[MAIN] Notifications enabled: ${settings.notifications}`);
-        if (settings.notifications) {
+        const notificationsEnabled = settings.notifications !== false;
+        console.log(`[MAIN] Notifications enabled: ${notificationsEnabled} (raw: ${settings.notifications})`);
+        if (notificationsEnabled) {
           const { Notification } = require('electron');
           const senderName = data.from?.name || 'a peer';
           const notification = new Notification({
@@ -467,7 +798,8 @@ async function startPeerServer() {
 
     // Show notification
     const settings = getSettings();
-    if (settings.notifications) {
+    const notificationsEnabled = settings.notifications !== false;
+    if (notificationsEnabled) {
       const { Notification } = require('electron');
       const message = data.reason === 'STORAGE_FULL'
         ? `Storage limit reached. "${data.file.name}" was blocked.`
@@ -798,7 +1130,8 @@ ipcMain.on('overlay:files-dropped', async (event, filePaths) => {
 
     // Show notification
     const settings = getSettings();
-    if (settings.notifications) {
+    const notificationsEnabled = settings.notifications !== false;
+    if (notificationsEnabled) {
       const { Notification } = require('electron');
       new Notification({
         title: 'Files Shared',
@@ -819,42 +1152,6 @@ ipcMain.on('overlay:files-dropped', async (event, filePaths) => {
       overlayWindow = null;
     }
   }, 1000);
-});
-
-// Notification handlers (new in-app system)
-ipcMain.handle('notification:accept', async (event, data) => {
-  console.log('[MAIN] File accepted:', data.file.name);
-
-  const file = {
-    ...data.file,
-    from: data.from,
-    receivedAt: Date.now(),
-  };
-
-  addSharedFile(file);
-  recordTransferStat({ direction: 'received', bytes: file.size || 0, timestamp: Date.now() });
-
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('file:received', file);
-  }
-
-  return { success: true };
-});
-
-ipcMain.handle('notification:decline', async (event, data) => {
-  console.log('[MAIN] File declined:', data.file.name);
-
-  // Delete the file from disk
-  if (data.file.path && fs.existsSync(data.file.path)) {
-    try {
-      fs.unlinkSync(data.file.path);
-      console.log('[MAIN] Declined file deleted from disk');
-    } catch (err) {
-      console.error('[MAIN] Error deleting declined file:', err);
-    }
-  }
-
-  return { success: true };
 });
 
 // App info

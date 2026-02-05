@@ -1,29 +1,44 @@
 # Notification System Overhaul
 
 ## Overview
-Replaced the old separate notification windows system with a modern in-app notification system that displays styled modals in the top-right corner of the main window.
+Replaced the old separate notification windows system with a modern **system overlay** notification system that displays styled windows on top of all applications, even when PolyHub is minimized or in the system tray.
 
-## Key Features
+## Recent Fixes (February 2026)
+- **Converted to system overlay windows**: Notifications now appear as separate always-on-top windows that work even when app is minimized
+- **Increased countdown to 10 seconds**: Changed from 5 to 10 seconds for auto-accept
+- **Fixed decline behavior**: Declining a file now properly deletes it from disk before it's added to the gallery
+- **Fixed crash caused by missing React dependencies**: Added proper `useCallback` hooks and dependency arrays to prevent stale closures
+- **Added null safety checks**: All notification data fields now have fallback values to prevent crashes from malformed data
+- **Improved error handling**: Wrapped event handlers and cleanup functions in try-catch blocks
+- **Fixed notifications not showing**: Changed notification check from `settings.notifications` to `settings.notifications !== false` to default to enabled when undefined (backwards compatibility)
+- **Fixed hook initialization order**: Moved `useCallback` definitions before `useEffect` hooks that depend on them to prevent "Cannot access before initialization" errors
 
-### 1. **In-App Notifications**
-- Notifications now appear as styled modals within the main window (top-right corner)
-- No more separate notification windows that can get lost or misplaced
+## Status
+✅ **FULLY FUNCTIONAL** - Notifications now display as system overlays with 10-second auto-accept countdown
+
+## Key Features 
+
+### 1. **System Overlay Notifications**
+- Notifications appear as separate always-on-top windows
+- Visible even when PolyHub is minimized or in system tray
+- Stack vertically in the bottom-right corner of the screen
+- Automatically reposition when notifications are dismissed
 
 ### 2. **Queue System**
-- Maximum of 2 notifications visible on screen at once
-- Additional notifications are queued and shown automatically when space becomes available
-- Each notification only starts its countdown when it becomes visible
+- Multiple notifications stack vertically
+- Each notification is an independent window
+- Notifications automatically reposition when one closes
 
-### 3. **5-Second Auto-Accept Countdown**
+### 3. **10-Second Auto-Accept Countdown**
 - Visual countdown timer with circular progress indicator
-- Auto-accepts file after 5 seconds if no action is taken
-- Countdown is displayed in the accept button: "ACCEPT (5s)"
+- Auto-accepts file after 10 seconds if no action is taken
+- Countdown is displayed in the accept button: "ACCEPT (10s)"
 
-### 4. **Theme Integration**
-- Notifications automatically match the user's selected theme (dark/light)
-- Uses the user's chosen accent color for borders, buttons, and highlights
-- Supports rounded corners setting
-- Fully responsive to theme changes
+### 4. **Brutalist Design**
+- Dark theme with safety orange accents
+- Monospace typography (JetBrains Mono)
+- Sharp edges and high contrast
+- Matches PolyHub's design language
 
 ### 5. **Rich File Information**
 - Displays sender's profile picture or initial
@@ -34,86 +49,71 @@ Replaced the old separate notification windows system with a modern in-app notif
 
 ### 6. **User Actions**
 - **Accept**: Adds file to gallery and records transfer stats
-- **Decline**: Deletes the file from disk immediately
-- **Auto-accept**: After 5 seconds, file is automatically accepted
+- **Decline**: Deletes the file from disk immediately (file never appears in gallery)
+- **Auto-accept**: After 10 seconds, file is automatically accepted
 
 ## Technical Implementation
 
 ### New Files Created
 
-1. **`src/renderer/components/FileNotification.jsx`**
-   - Individual notification component
-   - Handles countdown timer and animations
-   - Displays file info, sender details, and action buttons
-
-2. **`src/renderer/components/FileNotification.css`**
-   - Styled to match app theme
-   - Slide-in/slide-out animations
-   - Responsive positioning for stacked notifications
-
-3. **`src/renderer/components/NotificationManager.jsx`**
-   - Manages notification queue
-   - Limits visible notifications to 2 at a time
-   - Handles IPC communication with main process
+1. **`src/main/notification-window.html`**
+   - Standalone HTML file for notification windows
+   - Self-contained with inline CSS and JavaScript
+   - Handles countdown timer and user interactions
+   - Communicates with main process via IPC
 
 ### Modified Files
 
-1. **`src/renderer/App.jsx`**
-   - Added `NotificationManager` component
-   - Renders notification system when user is logged in
+1. **`src/main/main.js`**
+   - Added `notificationWindows` array to track active notification windows
+   - Added `createNotificationWindow()` function to create system overlay windows
+   - Added `repositionNotifications()` to restack windows when one closes
+   - Updated `file-received` handler to create notification windows instead of sending to renderer
+   - Removed old in-app notification IPC handlers
 
-2. **`src/main/preload.js`**
-   - Added `acceptFile()` and `declineFile()` IPC methods
-   - Added `onFileNotification()` event listener
+2. **`src/main/store.js`**
+   - Updated `getSettings()` to ensure `notifications` defaults to `true` when undefined
 
-3. **`src/main/main.js`**
-   - Removed `notificationWindows` array and `createNotificationWindow()` function
-   - Updated `file-received` handler to send notifications to renderer instead of creating windows
-   - Changed notification IPC handlers from `ipcMain.on()` to `ipcMain.handle()` for better async handling
-   - Notifications now always show when enabled (not just for files exceeding limits)
+### Removed Dependencies
 
-### Removed Files
-- **`src/main/notification-overlay.html`** - No longer needed (can be deleted)
+- **In-app notification components** (NotificationManager.jsx, FileNotification.jsx) are no longer used
+- Can be kept for future reference or removed
 
 ## Behavior Changes
 
 ### Before
-- Separate notification windows appeared as floating overlays
-- Only showed notifications for files exceeding limits
-- 30-second timeout that declined the file
-- Windows could get lost behind other applications
+- Notifications appeared inside the main app window
+- Only visible when app window was open and focused
+- Required app to be running in foreground
 
 ### After
-- Notifications appear in-app at top-right corner
-- Shows notifications for ALL incoming files when notifications are enabled
-- 5-second countdown that auto-accepts the file
-- Always visible within the main window
-- Queue system prevents notification overload
-- Matches user's theme and accent color preferences
+- Notifications appear as system overlay windows
+- Always visible on top of all applications
+- Work even when app is minimized to system tray
+- 10-second countdown (increased from 5 seconds)
+- Declining properly deletes file from disk
 
 ## Settings Integration
 
 The notification system respects the existing settings:
-- **Enable Notifications**: Controls whether notifications appear at all
-- **Theme**: Dark/light mode automatically applied
-- **Accent Color**: Used for borders, buttons, and highlights
-- **Rounded Corners**: Applied to notification borders and buttons
+- **Enable Notifications**: Controls whether notification windows appear at all
+- When disabled, files are auto-accepted without showing notifications
 
 ## Testing Recommendations
 
 1. Test with notifications enabled/disabled
-2. Test with multiple files sent simultaneously (queue system)
+2. Test with multiple files sent simultaneously (stacking)
 3. Test with files exceeding size limits (warning display)
-4. Test theme switching while notifications are visible
-5. Test accent color changes
-6. Test auto-accept countdown
-7. Test accept/decline actions
-8. Test with app minimized to tray (notifications should queue until window is shown)
+4. Test with app minimized to tray
+5. Test with app completely closed (should still work if app is running in background)
+6. Test accept/decline actions
+7. Test auto-accept countdown (10 seconds)
+8. Test that declined files are deleted from disk
 
 ## Future Enhancements (Optional)
 
 - Add sound effects for incoming files
 - Add notification history/log
 - Add "Accept All" button when multiple files are queued
-- Add drag-to-reorder for queued notifications
-- Add notification preferences (countdown duration, max visible, etc.)
+- Add notification preferences (countdown duration, position, etc.)
+- Add theme support (light/dark mode)

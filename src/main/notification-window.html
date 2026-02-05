@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Notification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: transparent;
+            overflow: hidden;
+            -webkit-app-region: no-drag;
+        }
+
+        /* Light theme */
+        body.light-theme .file-notification {
+            background: #f7f6f3;
+            border-color: var(--accent-color, #d44800);
+            color: #37352f;
+        }
+
+        body.light-theme .notification-header {
+            border-bottom-color: #e3e2df;
+        }
+
+        body.light-theme .notification-title {
+            color: var(--accent-color, #d44800);
+        }
+
+        body.light-theme .countdown-text {
+            color: #37352f;
+        }
+
+        body.light-theme .sender-name {
+            color: #37352f;
+        }
+
+        body.light-theme .sender-ip {
+            color: #787774;
+        }
+
+        body.light-theme .file-info {
+            background: #ffffff;
+            border-color: #e3e2df;
+        }
+
+        body.light-theme .file-name {
+            color: #37352f;
+        }
+
+        body.light-theme .file-meta {
+            color: #787774;
+        }
+
+        body.light-theme .btn-decline {
+            border-color: #e3e2df;
+            color: #787774;
+        }
+
+        body.light-theme .btn-decline:hover {
+            border-color: #787774;
+            color: #37352f;
+        }
+
+        /* Rounded corners */
+        body.rounded-corners .file-notification {
+            border-radius: 8px;
+        }
+
+        body.rounded-corners .file-info {
+            border-radius: 4px;
+        }
+
+        body.rounded-corners .notification-warning {
+            border-radius: 4px;
+        }
+
+        body.rounded-corners .notification-btn {
+            border-radius: 4px;
+        }
+
+        .file-notification {
+            width: 380px;
+            background: #1a1a1a;
+            border: 2px solid var(--accent-color, #ff6700);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+            color: #e8e8e8;
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #3d3d3d;
+        }
+
+        .notification-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent-color, #ff6700);
+        }
+
+        .notification-countdown {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .countdown-ring {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .countdown-text {
+            font-size: 13px;
+            font-weight: 900;
+            color: #e8e8e8;
+            position: relative;
+            z-index: 1;
+        }
+
+        .notification-body {
+            padding: 16px;
+        }
+
+        .sender-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .sender-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: var(--accent-color, #ff6700);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: #0d0d0d;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .sender-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .sender-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sender-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #e8e8e8;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sender-ip {
+            font-size: 11px;
+            color: #888888;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #0d0d0d;
+            border: 1px solid #3d3d3d;
+            margin-bottom: 12px;
+        }
+
+        .file-icon {
+            font-size: 32px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .file-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #e8e8e8;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-meta {
+            font-size: 11px;
+            color: #888888;
+        }
+
+        .notification-warning {
+            font-size: 11px;
+            color: var(--accent-color, #ff6700);
+            padding: 10px 12px;
+            border: 1px solid var(--accent-color, #ff6700);
+            background: rgba(255, 103, 0, 0.1);
+            margin-bottom: 12px;
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 8px;
+            padding: 0 16px 16px;
+        }
+
+        .notification-btn {
+            flex: 1;
+            padding: 10px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border: 2px solid;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+        }
+
+        .btn-accept {
+            border-color: var(--accent-color, #ff6700);
+            color: var(--accent-color, #ff6700);
+        }
+
+        .btn-accept:hover {
+            background: var(--accent-color, #ff6700);
+            color: #0d0d0d;
+        }
+
+        .btn-decline {
+            border-color: #3d3d3d;
+            color: #888888;
+        }
+
+        .btn-decline:hover {
+            border-color: #888888;
+            color: #e8e8e8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="file-notification">
+        <div class="notification-header">
+            <div class="notification-title">INCOMING FILE</div>
+            <div class="notification-countdown">
+                <svg class="countdown-ring" width="24" height="24">
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="#3d3d3d" stroke-width="2" />
+                    <circle id="countdown-circle" cx="12" cy="12" r="10" fill="none" stroke="#ff6700" stroke-width="2"
+                        stroke-dasharray="62.83 62.83" stroke-dashoffset="0" transform="rotate(-90 12 12)"
+                        style="transition: stroke-dasharray 1s linear" />
+                </svg>
+                <span class="countdown-text" id="countdown-text">10</span>
+            </div>
+        </div>
+
+        <div class="notification-body">
+            <div class="sender-info">
+                <div class="sender-avatar" id="sender-avatar"></div>
+                <div class="sender-details">
+                    <div class="sender-name" id="sender-name">Unknown</div>
+                    <div class="sender-ip" id="sender-ip"></div>
+                </div>
+            </div>
+
+            <div class="file-info">
+                <div class="file-icon" id="file-icon">📁</div>
+                <div class="file-details">
+                    <div class="file-name" id="file-name">Unknown File</div>
+                    <div class="file-meta" id="file-meta">0 B • FILE</div>
+                </div>
+            </div>
+
+            <div class="notification-warning" id="warning" style="display: none;">
+                ⚠ File exceeds limit
+            </div>
+        </div>
+
+        <div class="notification-actions">
+            <button class="notification-btn btn-decline" id="btn-decline">DECLINE</button>
+            <button class="notification-btn btn-accept" id="btn-accept">ACCEPT (<span
+                    id="accept-countdown">10</span>s)</button>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        let countdown = 10;
+        let countdownInterval = null;
+        let notificationData = null;
+
+        // Receive notification data
+        ipcRenderer.on('notification-data', (event, data) => {
+            console.log('[Notification Window] Received data:', data);
+            notificationData = data;
+
+            // Apply theme
+            if (data.settings) {
+                if (data.settings.theme === 'light') {
+                    document.body.classList.add('light-theme');
+                }
+                if (data.settings.roundedCorners) {
+                    document.body.classList.add('rounded-corners');
+                }
+                if (data.settings.accentColor) {
+                    document.documentElement.style.setProperty('--accent-color', data.settings.accentColor);
+                }
+            }
+
+            populateNotification(data);
+            startCountdown();
+        });
+
+        function populateNotification(data) {
+            // Sender info
+            const senderName = data.from?.name || 'Unknown';
+            const senderIP = data.from?.ip || '';
+            document.getElementById('sender-name').textContent = senderName;
+            document.getElementById('sender-ip').textContent = senderIP;
+
+            // Profile picture or initial
+            const avatarEl = document.getElementById('sender-avatar');
+            if (data.from?.profilePicture) {
+                avatarEl.innerHTML = `<img src="${data.from.profilePicture}" alt="${senderName}" />`;
+            } else {
+                avatarEl.textContent = senderName[0]?.toUpperCase() || '?';
+            }
+
+            // File info
+            document.getElementById('file-name').textContent = data.file?.name || 'Unknown File';
+            document.getElementById('file-name').title = data.file?.name || 'Unknown File';
+            document.getElementById('file-meta').textContent = `${formatBytes(data.file?.size || 0)} • ${(data.file?.type || 'FILE').toUpperCase()}`;
+            document.getElementById('file-icon').textContent = getFileIcon(data.file?.type);
+
+            // Warning
+            if (data.exceedsLimit) {
+                const warning = document.getElementById('warning');
+                warning.textContent = `⚠ File exceeds ${data.limitType} limit (${data.limitValue} GB)`;
+                warning.style.display = 'block';
+            }
+        }
+
+        function startCountdown() {
+            countdownInterval = setInterval(() => {
+                countdown--;
+                updateCountdownDisplay();
+
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    acceptFile();
+                }
+            }, 1000);
+        }
+
+        function updateCountdownDisplay() {
+            document.getElementById('countdown-text').textContent = countdown;
+            document.getElementById('accept-countdown').textContent = countdown;
+
+            // Update SVG circle
+            const circumference = 62.83;
+            const progress = countdown / 10;
+            const circle = document.getElementById('countdown-circle');
+            if (circle) {
+                circle.style.strokeDasharray = `${progress * circumference} ${circumference}`;
+            }
+        }
+
+        function acceptFile() {
+            clearInterval(countdownInterval);
+            ipcRenderer.send('notification-response', { action: 'accept', data: notificationData });
+        }
+
+        function declineFile() {
+            clearInterval(countdownInterval);
+            ipcRenderer.send('notification-response', { action: 'decline', data: notificationData });
+        }
+
+        document.getElementById('btn-accept').addEventListener('click', acceptFile);
+        document.getElementById('btn-decline').addEventListener('click', declineFile);
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function getFileIcon(type) {
+            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'];
+            const videoExts = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm'];
+            const audioExts = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a'];
+            const docExts = ['pdf', 'doc', 'docx', 'txt', 'rtf'];
+            const archiveExts = ['zip', 'rar', '7z', 'tar', 'gz'];
+
+            const ext = type?.toLowerCase();
+            if (imageExts.includes(ext)) return '🖼️';
+            if (videoExts.includes(ext)) return '🎬';
+            if (audioExts.includes(ext)) return '🎵';
+            if (docExts.includes(ext)) return '📄';
+            if (archiveExts.includes(ext)) return '📦';
+            return '📁';
+        }
+    </script>
+</body>
+
+</html>

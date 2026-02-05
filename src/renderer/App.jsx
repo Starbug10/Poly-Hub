@@ -179,8 +179,6 @@ function App() {
           </>
         )}
       </div>
-      {/* Notification Manager - always rendered */}
-      {!needsOnboarding && <NotificationManager />}
     </div>
   );
 }

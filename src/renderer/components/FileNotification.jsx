@@ -2,8 +2,22 @@ import React, { useState, useEffect } from 'react';
 import './FileNotification.css';
 
 function FileNotification({ notification, onAccept, onDecline, position }) {
+    console.log('[FileNotification] Component called with:', { notification, position });
     const [countdown, setCountdown] = useState(5);
     const [isVisible, setIsVisible] = useState(false);
+
+    console.log('[FileNotification] Rendering notification:', notification.file?.name, 'position:', position, 'isVisible:', isVisible);
+
+    // Define callbacks BEFORE they're used in useEffect
+    const handleAccept = React.useCallback(() => {
+        setIsVisible(false);
+        setTimeout(() => onAccept(notification), 300);
+    }, [notification, onAccept]);
+
+    const handleDecline = React.useCallback(() => {
+        setIsVisible(false);
+        setTimeout(() => onDecline(notification), 300);
+    }, [notification, onDecline]);
 
     useEffect(() => {
         // Trigger animation
@@ -21,17 +35,7 @@ function FileNotification({ notification, onAccept, onDecline, position }) {
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [countdown]);
-
-    const handleAccept = () => {
-        setIsVisible(false);
-        setTimeout(() => onAccept(notification), 300);
-    };
-
-    const handleDecline = () => {
-        setIsVisible(false);
-        setTimeout(() => onDecline(notification), 300);
-    };
+    }, [countdown, handleAccept]);
 
     const formatBytes = (bytes) => {
         if (bytes === 0) return '0 B';
@@ -93,26 +97,26 @@ function FileNotification({ notification, onAccept, onDecline, position }) {
             <div className="notification-body">
                 <div className="sender-info">
                     <div className="sender-avatar">
-                        {notification.from.profilePicture ? (
+                        {notification.from?.profilePicture ? (
                             <img src={notification.from.profilePicture} alt="" />
                         ) : (
-                            <span>{(notification.from.name || '?')[0].toUpperCase()}</span>
+                            <span>{((notification.from?.name || '?')[0] || '?').toUpperCase()}</span>
                         )}
                     </div>
                     <div className="sender-details">
-                        <div className="sender-name">{notification.from.name || 'Unknown'}</div>
-                        <div className="sender-ip">{notification.from.ip || ''}</div>
+                        <div className="sender-name">{notification.from?.name || 'Unknown'}</div>
+                        <div className="sender-ip">{notification.from?.ip || ''}</div>
                     </div>
                 </div>
 
                 <div className="file-info">
-                    <div className="file-icon">{getFileIcon(notification.file.type)}</div>
+                    <div className="file-icon">{getFileIcon(notification.file?.type)}</div>
                     <div className="file-details">
-                        <div className="file-name" title={notification.file.name}>
-                            {notification.file.name}
+                        <div className="file-name" title={notification.file?.name || 'Unknown'}>
+                            {notification.file?.name || 'Unknown File'}
                         </div>
                         <div className="file-meta">
-                            {formatBytes(notification.file.size)} • {(notification.file.type || 'FILE').toUpperCase()}
+                            {formatBytes(notification.file?.size || 0)} • {(notification.file?.type || 'FILE').toUpperCase()}
                         </div>
                     </div>
                 </div>
