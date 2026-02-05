@@ -98,7 +98,11 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
     window.electronAPI.onPeerUpdated((updatedPeer) => {
       console.log('[Gallery] Peer updated:', updatedPeer.name);
       setPeers((prev) => 
-        prev.map((p) => p.ip === updatedPeer.ip ? { ...p, name: updatedPeer.name } : p)
+        prev.map((p) => p.ip === updatedPeer.ip ? { 
+          ...p, 
+          name: updatedPeer.name,
+          profilePicture: updatedPeer.profilePicture 
+        } : p)
       );
     });
 
@@ -545,8 +549,10 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
   const filteredFiles = getFilteredAndSortedFiles();
   const uniqueSenders = getUniqueSenders();
 
-  // Get files that are currently being received (have progress)
-  const receivingFiles = Object.entries(fileProgress).filter(([id, progress]) => progress.progress < 100);
+  // Get files that are currently being received (have progress and not sending)
+  const receivingFiles = Object.entries(fileProgress).filter(
+    ([id, progress]) => progress.progress < 100 && progress.direction !== 'sending'
+  );
 
   return (
     <div 

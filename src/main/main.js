@@ -201,8 +201,17 @@ async function startPeerServer() {
         }).show();
       }
     } else if (result.reason === 'Peer already exists') {
-      // Update lastSeen for existing peer
-      updatePeer(peerData.ip, { lastSeen: Date.now() });
+      // Update lastSeen AND profile picture for existing peer
+      const updates = { lastSeen: Date.now() };
+      if (peerData.profilePicture !== undefined) {
+        updates.profilePicture = peerData.profilePicture;
+      }
+      if (peerData.name) {
+        updates.name = peerData.name;
+      }
+      updatePeer(peerData.ip, updates);
+      // Notify renderer about the updated peer
+      mainWindow.webContents.send('peer:updated', peerData);
     }
   });
 
@@ -297,13 +306,18 @@ async function startPeerServer() {
     if (data.localPath) {
       // Show notification when file starts receiving (first progress event for this file)
       if (!receivingFiles.has(data.localPath)) {
+        console.log(`[MAIN] New file transfer detected: ${data.fileName}`);
         const settings = getSettings();
+        console.log(`[MAIN] Notifications enabled: ${settings.notifications}`);
         if (settings.notifications) {
           const { Notification } = require('electron');
-          new Notification({
+          const senderName = data.from?.name || 'a peer';
+          const notification = new Notification({
             title: 'Receiving File',
-            body: `Receiving ${data.fileName} from peer...`,
-          }).show();
+            body: `Receiving "${data.fileName}" from ${senderName}...`,
+          });
+          notification.show();
+          console.log(`[MAIN] Notification shown for: ${data.fileName}`);
         }
       }
       receivingFiles.add(data.localPath);
@@ -360,7 +374,12 @@ async function startPeerServer() {
   // Handle incoming profile updates
   peerServer.on('profile-update', (data) => {
     console.log(`[MAIN] Profile update received: ${data.profile.name} (${data.profile.ip})`);
-    updatePeer(data.profile.ip, { name: data.profile.name });
+    // Update both name and profile picture
+    const updates = { name: data.profile.name };
+    if (data.profile.profilePicture !== undefined) {
+      updates.profilePicture = data.profile.profilePicture;
+    }
+    updatePeer(data.profile.ip, updates);
     mainWindow.webContents.send('peer:updated', data.profile);
   });
 
@@ -1172,9 +1191,27 @@ ipcMain.handle('files:shareFolder', async (event, folderPath) => {
   return results;
 });
 
-// Get shared files
+// Get shared files - filter out files that no longer exist on disk
 ipcMain.handle('files:get', () => {
-  return getSharedFiles();
+  const sharedFiles = getSharedFiles();
+  const validFiles = [];
+  const invalidFileIds = [];
+
+  for (const file of sharedFiles) {
+    if (file.path && fs.existsSync(file.path)) {
+      validFiles.push(file);
+    } else {
+      console.log(`[MAIN] Removing stale file entry: ${file.name} (${file.path})`);
+      invalidFileIds.push(file.id);
+    }
+  }
+
+  // Clean up stale entries from store
+  for (const fileId of invalidFileIds) {
+    removeSharedFile(fileId);
+  }
+
+  return validFiles;
 });
 
 // Delete a shared file

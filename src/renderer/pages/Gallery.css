@@ -297,6 +297,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .filter-search {
@@ -307,9 +308,9 @@
   padding: var(--space-2) var(--space-3);
   border: var(--border);
   background-color: var(--color-bg);
-  flex: 1;
-  min-width: 120px;
-  max-width: 280px;
+  flex: 1 1 200px;
+  min-width: 150px;
+  max-width: 100%;
 }
 
 .filter-search svg {
@@ -353,7 +354,8 @@
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .filter-select {
@@ -365,6 +367,7 @@
   color: var(--color-text);
   cursor: pointer;
   transition: all 0.1s ease;
+  white-space: nowrap;
 }
 
 .filter-select:hover {
@@ -389,6 +392,7 @@
   cursor: pointer;
   transition: all 0.1s ease;
   margin-left: auto;
+  white-space: nowrap;
 }
 
 .filter-clear-all-btn:hover {
@@ -810,32 +814,36 @@
 }
 
 /* Responsive adjustments for smaller screens */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .gallery-filters-top {
     flex-direction: column;
     align-items: stretch;
+    gap: var(--space-2);
   }
 
   .filter-search {
     max-width: none;
     width: 100%;
+    flex: none;
   }
 
   .filter-controls {
     justify-content: flex-start;
+    width: 100%;
   }
 
   .filter-select {
-    flex: 1;
-    min-width: 100px;
+    flex: 1 1 auto;
+    min-width: 80px;
   }
 
   .filter-clear-all-btn {
     margin-left: 0;
-    flex: 1;
-    justify-content: center;
+    flex: 0 0 auto;
   }
+}
 
+@media (max-width: 600px) {
   .gallery-header {
     flex-direction: column;
     gap: var(--space-4);
@@ -849,5 +857,15 @@
 
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .filter-select {
+    flex: 1 1 45%;
+    min-width: 0;
+  }
+
+  .filter-clear-all-btn {
+    flex: 1 1 100%;
+    justify-content: center;
   }
 }
