@@ -17,6 +17,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
   const [filterSender, setFilterSender] = useState('all'); // all or specific peer name
   const [tailscaleOffline, setTailscaleOffline] = useState(propTailscaleOffline || false);
   const [noPeersOnline, setNoPeersOnline] = useState(false); // Show warning when no peers online
+  const [noPeersWarningDismissed, setNoPeersWarningDismissed] = useState(false); // Track if user dismissed the warning
   const [pendingAction, setPendingAction] = useState(null); // Store action to retry
   const dragCounterRef = useRef(0);
   const fileProgressRef = useRef({}); // Ref to track progress without causing re-renders
@@ -173,6 +174,12 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
 
       // Check if any peers are online
       const onlineCount = Object.values(statusMap).filter(isOnline => isOnline).length;
+
+      // Reset dismissed state when manually checking and peers come online
+      if (onlineCount > 0) {
+        setNoPeersWarningDismissed(false);
+      }
+
       return onlineCount > 0;
     } catch (err) {
       console.error('[Gallery] Error checking peer status:', err);
@@ -228,6 +235,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
 
   const dismissNoPeersWarning = () => {
     setNoPeersOnline(false);
+    setNoPeersWarningDismissed(true); // Mark as dismissed
     setPendingAction(null);
   };
 
@@ -276,9 +284,9 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
       return;
     }
 
-    // Check if any peers are online
+    // Check if any peers are online (only show warning if not dismissed)
     const hasPeersOnline = await checkPeersStatus();
-    if (!hasPeersOnline) {
+    if (!hasPeersOnline && !noPeersWarningDismissed) {
       // Store the action to retry later
       setPendingAction(() => async () => {
         await processDroppedItems(droppedItems);
@@ -288,7 +296,7 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
     }
 
     await processDroppedItems(droppedItems);
-  }, [checkPeersStatus]);
+  }, [checkPeersStatus, noPeersWarningDismissed]);
 
   const processDroppedItems = async (droppedItems) => {
     // Separate folders from files
@@ -342,9 +350,9 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
       return;
     }
 
-    // Check if any peers are online
+    // Check if any peers are online (only show warning if not dismissed)
     const hasPeersOnline = await checkPeersStatus();
-    if (!hasPeersOnline) {
+    if (!hasPeersOnline && !noPeersWarningDismissed) {
       setPendingAction(() => handleSelectFiles);
       setNoPeersOnline(true);
       return;
@@ -420,9 +428,9 @@ function Gallery({ tailscaleOffline: propTailscaleOffline }) {
       return;
     }
 
-    // Check if any peers are online
+    // Check if any peers are online (only show warning if not dismissed)
     const hasPeersOnline = await checkPeersStatus();
-    if (!hasPeersOnline) {
+    if (!hasPeersOnline && !noPeersWarningDismissed) {
       setPendingAction(() => handleSelectFolder);
       setNoPeersOnline(true);
       return;
