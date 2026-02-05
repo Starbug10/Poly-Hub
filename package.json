@@ -1,6 +1,6 @@
 {
   "name": "poly-hub",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "P2P file sharing between trusted users over Tailscale",
   "main": "src/main/main.js",
   "scripts": {
